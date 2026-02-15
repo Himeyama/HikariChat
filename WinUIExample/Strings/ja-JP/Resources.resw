@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <data name="File.Title" xml:space="preserve"><value>ファイル</value></data>
+  <data name="Open.Text" xml:space="preserve"><value>開く...</value></data>
+  <data name="Save.Text" xml:space="preserve"><value>保存</value></data>
+  <data name="SaveAs.Text" xml:space="preserve"><value>名前を付けて保存...</value></data>
+  <data name="Exit.Text" xml:space="preserve"><value>終了</value></data>
+  <data name="Edit.Title" xml:space="preserve"><value>編集</value></data>
+  <data name="Undo.Text" xml:space="preserve"><value>やり直し</value></data>
+  <data name="Cut.Text" xml:space="preserve"><value>切り取り</value></data>
+  <data name="Copy.Text" xml:space="preserve"><value>コピー</value></data>
+  <data name="Paste.Text" xml:space="preserve"><value>貼り付け</value></data>
+  <data name="View.Title" xml:space="preserve"><value>表示</value></data>
+  <data name="Zoom.Text" xml:space="preserve"><value>ズーム</value></data>
+  <data name="ZoomIn.Text" xml:space="preserve"><value>拡大</value></data>
+  <data name="ZoomOut.Text" xml:space="preserve"><value>縮小</value></data>
+  <data name="RestoreDefaultZoom.Text" xml:space="preserve"><value>既定の倍率に戻す</value></data>
+  <data name="Help.Title" xml:space="preserve"><value>ヘルプ</value></data>
+  <data name="About.Text" xml:space="preserve"><value>このアプリについて</value></data>
+  <data name="InformationText.Text" xml:space="preserve"><value>情報</value></data>
+  <data name="ErrorText.Text" xml:space="preserve"><value>エラー</value></data>
+  <data name="CancelText.Text" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="ZoomInText.Text" xml:space="preserve"><value>Ctrl + プラス記号 (+)</value></data>
+  <data name="ZoomOutText.Text" xml:space="preserve"><value>Ctrl + マイナス記号 (-)</value></data>
+  <data name="AppTitleText.Text" xml:space="preserve"><value>アプリタイトル</value></data>
+</root>

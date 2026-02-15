@@ -1,0 +1,12 @@
+<Page
+    x:Class="Common.I18n"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+        <StackPanel Orientation="Horizontal">
+            <TextBlock x:Uid="InformationText" Name="InformationText" x:FieldModifier="Public" />
+            <TextBlock x:Uid="ErrorText" Name="ErrorText" x:FieldModifier="Public" />
+            <TextBlock x:Uid="CancelText" Name="CancelText" x:FieldModifier="Public" />
+        </StackPanel>
+    </StackPanel>
+</Page>

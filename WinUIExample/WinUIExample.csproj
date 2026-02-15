@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- アプリ名 -->
+    <AssemblyName>WinUIExample</AssemblyName>
+    
+    <!-- アプリの説明 -->
+    <Description>This app is an example of a small WinUI app.</Description>
+
+    <!-- 作者 -->
+    <Authors>MURATA Mitsuharu</Authors>
+
+    <!-- 法人・個人名 -->
+    <Company>MURATA Mitsuharu</Company>
+
+    <!-- 著作権情報 -->
+    <Copyright>(c) $([System.DateTime]::Now.Year) $(Company)</Copyright>
+
+    <!-- 発行先 -->
+    <PublishDir>publish</PublishDir>
+    
+    <!-- アイコン -->
+    <ApplicationIcon>Assets/App.ico</ApplicationIcon>
+
+    <!-- リポジトリの場所 -->
+    <RepositoryUrl>https://github.com/himeyama/WinUIExample</RepositoryUrl>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+
+    <!-- LICENSE & README.md の場所 -->
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <ApplicationManifest>app.manifest</ApplicationManifest> <!-- HiDpi 対応に必要 -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250513003" />
+  </ItemGroup>
+</Project>
