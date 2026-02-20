@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="https://unpkg.com/xp.css" />
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
 <body>
@@ -22,7 +23,53 @@
             </div>
         </div>
         <div class="window-body">
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+            <div class="chat-container">
+                <div class="chat-header">
+                    <button id="resetButton" class="reset-button" title="チャットをリセット">リセット</button>
+                    <button id="settingsButton" class="settings-button" title="設定">設定</button>
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input-area">
+                    <textarea id="chatInput" placeholder="メッセージを入力..." rows="3"></textarea>
+                    <button id="sendButton" class="send-button">送信</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 設定モーダル -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="title-bar">
+                    <div class="title-bar-text">設定</div>
+                    <div class="title-bar-controls">
+                        <button aria-label="Close" id="closeSettings"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="apiKey">API キー</label>
+                        <input type="password" id="apiKey" placeholder="sk-..." />
+                    </div>
+                    <div class="form-group">
+                        <label for="apiEndpoint">エンドポイント</label>
+                        <input type="url" id="apiEndpoint" placeholder="https://api.openai.com/v1/chat/completions" />
+                    </div>
+                    <div class="form-group">
+                        <label for="modelSelect">モデル</label>
+                        <select id="modelSelect">
+                            <option value="gpt-4o-mini">gpt-4o-mini</option>
+                            <option value="gpt-4o">gpt-4o</option>
+                            <option value="gpt-4-turbo">gpt-4-turbo</option>
+                            <option value="gpt-4">gpt-4</option>
+                            <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button id="saveSettings" class="default">保存</button>
+                        <button id="cancelSettings">キャンセル</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -73,9 +73,16 @@ public sealed partial class MainWindow : Window
                                     DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () => HandleWindowCommand(argValue));
                             }
                         }
+                        else if (tp.Name == "openSettings")
+                        {
+                            if (DispatcherQueue.HasThreadAccess)
+                                OpenSettingsWindow();
+                            else
+                                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () => OpenSettingsWindow());
+                        }
                     }
                 }
-            }            
+            }
 
             // UI スレッドで実行
             // if (DispatcherQueue.HasThreadAccess)
@@ -100,6 +107,8 @@ public sealed partial class MainWindow : Window
             this.presenter = presenter;
         }
     }
+
+    SettingsWindow? settingsWindow;
 
     void HandleWindowCommand(string cmd)
     {
@@ -127,7 +136,45 @@ public sealed partial class MainWindow : Window
             case "close":
                 Close();
                 break;
+            case "openSettings":
+                OpenSettingsWindow();
+                break;
         }
+    }
+
+    void OpenSettingsWindow()
+    {
+        LogInfo($"OpenSettingsWindow called. ServerUri={ServerUri}");
+        
+        if (settingsWindow == null)
+        {
+            string settingsUri = ServerUri;
+            if (ServerUri.Contains("index.html"))
+                settingsUri = ServerUri.Replace("index.html", "settings.html");
+            else if (ServerUri.EndsWith("/"))
+                settingsUri = ServerUri + "settings.html";
+            else
+                settingsUri = ServerUri + "/settings.html";
+
+            LogInfo($"Creating SettingsWindow with Uri={settingsUri}");
+
+            settingsWindow = new SettingsWindow(this)
+            {
+                SettingsUri = settingsUri
+            };
+            settingsWindow.Closed += (s, e) => settingsWindow = null;
+            settingsWindow.Activate();
+        }
+        else
+        {
+            settingsWindow.Activate();
+        }
+    }
+
+    public void NotifySettingsUpdated()
+    {
+        // メインウィンドウの WebView2 に設定更新を通知
+        Preview.CoreWebView2?.PostWebMessageAsString("settingsUpdated");
     }
 
     void LogInfo(string message, string memberName = "", string sourceFilePath = "", int sourceLineNumber = 0)
