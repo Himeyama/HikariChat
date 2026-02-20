@@ -58,12 +58,64 @@ const apiTypeDescriptions = {
 
 // モデルリスト
 const models = {
-    openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo", "o1-preview", "o1-mini"],
-    azure_openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
-    gemini: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"],
-    grok: ["grok-4", "grok-4-fast", "grok-4-1-fast-reasoning", "grok-4-1-fast-non-reasoning", "grok-4-1-fast", "grok-code-fast-1", "grok-3", "grok-3-mini", "grok-3-beta", "grok-3-mini-beta"],
-    anthropic: ["claude-sonnet-4-20250514", "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"],
-    ollama: ["llama3.2", "llama3.1", "mistral", "gemma2", "qwen2.5"],
+    openai: [
+        "gpt-5.2",          // 最新フラッグシップ推論モデル
+        "gpt-5.2-pro",      // 高精度版
+        "gpt-5",            // 前世代フラッグシップ
+        "gpt-5-mini",       // コスト効率重視版
+        "gpt-5-nano",       // 最速・最安
+        "gpt-4.1",          // コーディング特化
+        "gpt-4.1-mini",     // gpt-4.1 軽量版
+        "gpt-4.1-nano",     // 最速軽量版
+        "gpt-4o",           // マルチモーダル
+        "gpt-4o-mini",      // gpt-4o 軽量版
+    ],
+    azure_openai: [
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4o",
+        "gpt-4o-mini",
+    ],
+    gemini: [
+        "gemini-3-pro",          // 最新フラッグシップ (preview)
+        "gemini-3-flash",        // 高性能マルチモーダル (preview)
+        "gemini-2.5-pro",        // GA 推論モデル
+        "gemini-2.5-flash",      // GA 高速・低コスト
+        "gemini-2.5-flash-lite", // GA 最軽量
+        "gemini-2.0-flash",      // 前世代 (2026/3 退役予定)
+        "gemini-2.0-flash-lite", // 前世代軽量版 (2026/3 退役予定)
+    ],
+    grok: [
+        "grok-4",
+        "grok-4-fast",
+        "grok-4-1-fast-reasoning",
+        "grok-4-1-fast-non-reasoning",
+        "grok-4-1-fast",
+        "grok-code-fast-1",
+        "grok-3",
+        "grok-3-mini",
+        "grok-3-beta",
+        "grok-3-mini-beta",
+    ],
+    anthropic: [
+        "claude-opus-4-6",    // 最新・最高性能 (2026/2 リリース)
+        "claude-sonnet-4-6",  // 最新ミッドティア (2026/2 リリース)
+        "claude-opus-4-5",    // 前世代フラッグシップ
+        "claude-sonnet-4-5",  // 前世代ミッドティア
+        "claude-haiku-4-5",   // 軽量版
+    ],
+    ollama: [
+        "llama3.3",         // Meta 最新
+        "llama3.2",         // Meta 軽量
+        "qwen3",            // Alibaba 最新世代
+        "qwen2.5",          // Alibaba 安定版
+        "deepseek-r1",      // 推論特化
+        "mistral",          // Mistral 7B
+        "gemma2",           // Google 軽量版
+        "phi4",             // Microsoft 14B
+    ],
     custom: []
 };
 

@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,6 +18,7 @@ public class SimpleApiServer : IDisposable
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+    static readonly HttpClient _httpClient = new();
 
     public SimpleApiServer(string prefix)
     {
@@ -212,7 +212,7 @@ public class SimpleApiServer : IDisposable
         {
             // リクエストボディを読み取る
             string requestBody;
-            using (StreamReader reader = new StreamReader(req.InputStream, req.ContentEncoding))
+            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
             {
                 requestBody = await reader.ReadToEndAsync();
             }
@@ -276,7 +276,7 @@ public class SimpleApiServer : IDisposable
         {
             using HttpWebResponse errorResponse = (HttpWebResponse)ex.Response;
             using Stream errorStream = errorResponse.GetResponseStream();
-            using StreamReader errorReader = new StreamReader(errorStream);
+            using StreamReader errorReader = new(errorStream);
             string errorJson = await errorReader.ReadToEndAsync();
 
             res.StatusCode = (int)errorResponse.StatusCode;
@@ -298,20 +298,6 @@ public class SimpleApiServer : IDisposable
             endpoint = endpoint.Replace("{deployment}", azureDeployment);
         }
 
-        HttpWebRequest httpRequest = (HttpWebRequest)WebRequest.Create(endpoint);
-        httpRequest.Method = "POST";
-        httpRequest.ContentType = "application/json";
-        
-        // 認証ヘッダーの設定
-        if (endpointPreset == "azure_openai")
-        {
-            httpRequest.Headers["api-key"] = apiKey;
-        }
-        else if (!string.IsNullOrEmpty(apiKey))
-        {
-            httpRequest.Headers["Authorization"] = $"Bearer {apiKey}";
-        }
-
         // リクエストボディを作成
         var requestPayload = new
         {
@@ -320,38 +306,39 @@ public class SimpleApiServer : IDisposable
         };
 
         string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
-        byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
-        httpRequest.ContentLength = requestBytes.Length;
 
-        using (Stream requestStream = await httpRequest.GetRequestStreamAsync())
+        using HttpRequestMessage httpRequest = new(HttpMethod.Post, endpoint);
+        httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+
+        // 認証ヘッダーの設定
+        if (endpointPreset == "azure_openai")
         {
-            await requestStream.WriteAsync(requestBytes, 0, requestBytes.Length);
+            httpRequest.Headers.Add("api-key", apiKey);
+        }
+        else if (!string.IsNullOrEmpty(apiKey))
+        {
+            httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
         }
 
-        using HttpWebResponse httpWebResponse = (HttpWebResponse)await httpRequest.GetResponseAsync();
-        using Stream responseStream = httpWebResponse.GetResponseStream();
-        using StreamReader responseReader = new StreamReader(responseStream, Encoding.UTF8);
-        return await responseReader.ReadToEndAsync();
+        using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest);
+        string responseJson = await httpResponse.Content.ReadAsStringAsync();
+        httpResponse.EnsureSuccessStatusCode();
+        return responseJson;
     }
 
     async Task<string> HandleResponsesApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment)
     {
         // Responses API は OpenAI のみ対応
-        HttpWebRequest httpRequest = (HttpWebRequest)WebRequest.Create(apiEndpoint);
-        httpRequest.Method = "POST";
-        httpRequest.ContentType = "application/json";
-        if (!string.IsNullOrEmpty(apiKey))
-        {
-            httpRequest.Headers["Authorization"] = $"Bearer {apiKey}";
-        }
-
         // messages を input に変換
         object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
-        List<object> inputMessages = new List<object>();
-        foreach (object msg in messages)
+        List<object> inputMessages = new();
+        if (messages != null)
         {
-            JsonElement msgDict = JsonSerializer.SerializeToElement(msg);
-            inputMessages.Add(msgDict);
+            foreach (object msg in messages)
+            {
+                JsonElement msgDict = JsonSerializer.SerializeToElement(msg);
+                inputMessages.Add(msgDict);
+            }
         }
 
         var requestPayload = new
@@ -361,46 +348,44 @@ public class SimpleApiServer : IDisposable
         };
 
         string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
-        byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
-        httpRequest.ContentLength = requestBytes.Length;
 
-        using (Stream requestStream = await httpRequest.GetRequestStreamAsync())
+        using HttpRequestMessage httpRequest = new(HttpMethod.Post, apiEndpoint);
+        httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+        
+        if (!string.IsNullOrEmpty(apiKey))
         {
-            await requestStream.WriteAsync(requestBytes, 0, requestBytes.Length);
+            httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
         }
 
-        using HttpWebResponse httpWebResponse = (HttpWebResponse)await httpRequest.GetResponseAsync();
-        using Stream responseStream = httpWebResponse.GetResponseStream();
-        using StreamReader responseReader = new StreamReader(responseStream, Encoding.UTF8);
-        return await responseReader.ReadToEndAsync();
+        using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest);
+        string responseJson = await httpResponse.Content.ReadAsStringAsync();
+        httpResponse.EnsureSuccessStatusCode();
+        return responseJson;
     }
 
     async Task<string> HandleAnthropicApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement)
     {
-        HttpWebRequest httpRequest = (HttpWebRequest)WebRequest.Create(apiEndpoint);
-        httpRequest.Method = "POST";
-        httpRequest.ContentType = "application/json";
-        httpRequest.Headers["x-api-key"] = apiKey;
-        httpRequest.Headers["anthropic-version"] = "2023-06-01";
-
         // OpenAI 形式から Anthropic 形式に変換
         object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
-        List<object> anthropicMessages = new List<object>();
+        List<object> anthropicMessages = new();
         string? systemMessage = null;
 
-        foreach (object msg in messages)
+        if (messages != null)
         {
-            JsonElement elem = JsonSerializer.SerializeToElement(msg);
-            if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
+            foreach (object msg in messages)
             {
-                string role = roleElem.GetString() ?? "";
-                if (role == "system")
+                JsonElement elem = JsonSerializer.SerializeToElement(msg);
+                if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
                 {
-                    systemMessage = contentElem.GetString();
-                }
-                else
-                {
-                    anthropicMessages.Add(new { role = role, content = contentElem.GetString() ?? "" });
+                    string role = roleElem.GetString() ?? "";
+                    if (role == "system")
+                    {
+                        systemMessage = contentElem.GetString();
+                    }
+                    else
+                    {
+                        anthropicMessages.Add(new { role = role, content = contentElem.GetString() ?? "" });
+                    }
                 }
             }
         }
@@ -414,18 +399,16 @@ public class SimpleApiServer : IDisposable
         };
 
         string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
-        byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
-        httpRequest.ContentLength = requestBytes.Length;
 
-        using (Stream requestStream = await httpRequest.GetRequestStreamAsync())
-        {
-            await requestStream.WriteAsync(requestBytes, 0, requestBytes.Length);
-        }
+        using HttpRequestMessage httpRequest = new(HttpMethod.Post, apiEndpoint);
+        httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+        httpRequest.Headers.Add("x-api-key", apiKey);
+        httpRequest.Headers.Add("anthropic-version", "2023-06-01");
 
-        using HttpWebResponse httpWebResponse = (HttpWebResponse)await httpRequest.GetResponseAsync();
-        using Stream responseStream = httpWebResponse.GetResponseStream();
-        using StreamReader responseReader = new StreamReader(responseStream, Encoding.UTF8);
-        return await responseReader.ReadToEndAsync();
+        using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest);
+        string responseJson = await httpResponse.Content.ReadAsStringAsync();
+        httpResponse.EnsureSuccessStatusCode();
+        return responseJson;
     }
 
     async Task<string> HandleGeminiApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement)
@@ -437,42 +420,37 @@ public class SimpleApiServer : IDisposable
             endpoint += (endpoint.Contains("?") ? "&" : "?") + "key=" + apiKey;
         }
 
-        HttpWebRequest httpRequest = (HttpWebRequest)WebRequest.Create(endpoint);
-        httpRequest.Method = "POST";
-        httpRequest.ContentType = "application/json";
-
         // OpenAI 形式から Gemini 形式に変換
         object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
-        List<object> contents = new List<object>();
+        List<object> contents = new();
 
-        foreach (object msg in messages ?? [])
+        if (messages != null)
         {
-            JsonElement elem = JsonSerializer.SerializeToElement(msg);
-            if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
+            foreach (object msg in messages)
             {
-                string role = roleElem.GetString() ?? "";
-                string content = contentElem.GetString() ?? "";
-                // Gemini は user / model のみ
-                string geminiRole = (role == "assistant") ? "model" : "user";
-                contents.Add(new { role = geminiRole, parts = new[] { new { text = content } } });
+                JsonElement elem = JsonSerializer.SerializeToElement(msg);
+                if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
+                {
+                    string role = roleElem.GetString() ?? "";
+                    string content = contentElem.GetString() ?? "";
+                    // Gemini は user / model のみ
+                    string geminiRole = (role == "assistant") ? "model" : "user";
+                    contents.Add(new { role = geminiRole, parts = new[] { new { text = content } } });
+                }
             }
         }
 
         var requestPayload = new { contents };
 
         string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
-        byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
-        httpRequest.ContentLength = requestBytes.Length;
 
-        using (Stream requestStream = await httpRequest.GetRequestStreamAsync())
-        {
-            await requestStream.WriteAsync(requestBytes, 0, requestBytes.Length);
-        }
+        using HttpRequestMessage httpRequest = new(HttpMethod.Post, endpoint);
+        httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
 
-        using HttpWebResponse httpWebResponse = (HttpWebResponse)await httpRequest.GetResponseAsync();
-        using Stream responseStream = httpWebResponse.GetResponseStream();
-        using StreamReader responseReader = new StreamReader(responseStream, Encoding.UTF8);
-        return await responseReader.ReadToEndAsync();
+        using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest);
+        string responseJson = await httpResponse.Content.ReadAsStringAsync();
+        httpResponse.EnsureSuccessStatusCode();
+        return responseJson;
     }
 
     public void Dispose()

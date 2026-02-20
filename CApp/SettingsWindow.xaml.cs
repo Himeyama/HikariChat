@@ -8,7 +8,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using WinRT.Interop;
-using Microsoft.UI.Xaml.Media;
 
 namespace CApp;
 
