@@ -247,14 +247,24 @@ public class SimpleApiServer : IDisposable
             string azureDeployment = messagesRoot.TryGetProperty("azureDeployment", out JsonElement azureDeploymentElem)
                 ? azureDeploymentElem.GetString() ?? ""
                 : "";
+            bool streaming = messagesRoot.TryGetProperty("streaming", out JsonElement streamingElem)
+                ? streamingElem.GetBoolean()
+                : false;
 
-            Console.WriteLine($"[API] Request: apiType={apiType}, endpointPreset={endpointPreset}, apiEndpoint={apiEndpoint}, model={model}");
+            Console.WriteLine($"[API] Request: apiType={apiType}, endpointPreset={endpointPreset}, apiEndpoint={apiEndpoint}, model={model}, streaming={streaming}");
 
             // Ollama 以外は API キー必須
             if (string.IsNullOrEmpty(apiKey) && endpointPreset != "ollama")
             {
                 res.StatusCode = (int)HttpStatusCode.BadRequest;
                 await WriteJsonAsync(res, new { error = "API キーが必要です" });
+                return;
+            }
+
+            // ストリーミング処理
+            if (streaming)
+            {
+                await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment);
                 return;
             }
 
@@ -286,6 +296,129 @@ public class SimpleApiServer : IDisposable
         {
             res.StatusCode = (int)HttpStatusCode.InternalServerError;
             await WriteJsonAsync(res, new { error = "内部サーバーエラー", detail = ex.Message });
+        }
+    }
+
+    async Task HandleStreamingAsync(HttpListenerResponse res, string apiType, string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment)
+    {
+        res.StatusCode = (int)HttpStatusCode.OK;
+        res.ContentType = "text/event-stream; charset=utf-8";
+        res.SendChunked = true;
+
+        try
+        {
+            // ストリーミング用のリクエストを作成
+            string endpoint = apiEndpoint;
+            if (endpointPreset == "azure_openai" && azureDeployment != "")
+            {
+                endpoint = endpoint.Replace("{deployment}", azureDeployment);
+            }
+
+            // messages をシリアライズ
+            object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
+            
+            // API 種別に応じてリクエストボディを作成
+            object requestPayload;
+            if (apiType == "anthropic")
+            {
+                // Anthropic 形式
+                List<object> anthropicMessages = new List<object>();
+                string? systemMessage = null;
+
+                if (messages != null)
+                {
+                    foreach (object msg in messages)
+                    {
+                        JsonElement elem = JsonSerializer.SerializeToElement(msg);
+                        if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
+                        {
+                            string role = roleElem.GetString() ?? "";
+                            if (role == "system")
+                            {
+                                systemMessage = contentElem.GetString();
+                            }
+                            else
+                            {
+                                anthropicMessages.Add(new { role = role, content = contentElem.GetString() ?? "" });
+                            }
+                        }
+                    }
+                }
+
+                requestPayload = new
+                {
+                    model,
+                    max_tokens = 4096,
+                    messages = anthropicMessages,
+                    system = systemMessage,
+                    stream = true
+                };
+            }
+            else
+            {
+                // OpenAI 互換形式
+                requestPayload = new
+                {
+                    model,
+                    messages,
+                    stream = true
+                };
+            }
+
+            string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+            
+            if (endpointPreset == "azure_openai")
+            {
+                httpRequest.Headers.Add("api-key", apiKey);
+            }
+            else if (!string.IsNullOrEmpty(apiKey))
+            {
+                httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            }
+            
+            if (apiType == "anthropic")
+            {
+                httpRequest.Headers.Add("x-api-key", apiKey);
+                httpRequest.Headers.Add("anthropic-version", "2023-06-01");
+            }
+
+            // ストリーミングレスポンスを処理
+            using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using Stream responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            using StreamReader reader = new StreamReader(responseStream, Encoding.UTF8);
+
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                if (line.StartsWith("data: "))
+                {
+                    string data = line.Substring(6);
+                    if (data == "[DONE]")
+                    {
+                        break;
+                    }
+
+                    // クライアントに転送
+                    byte[] chunk = Encoding.UTF8.GetBytes($"data: {data}\n\n");
+                    await res.OutputStream.WriteAsync(chunk, 0, chunk.Length);
+                    await res.OutputStream.FlushAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Streaming Error] {ex.Message}");
+        }
+        finally
+        {
+            // ストリームを閉じる
+            await res.OutputStream.WriteAsync(Encoding.UTF8.GetBytes("data: [DONE]\n\n"), 0, 14);
+            res.OutputStream.Close();
         }
     }
 

@@ -200,7 +200,7 @@ body.settings-window {
     font-weight: bold;
 }
 
-.form-group input,
+.form-group input:not([type="checkbox"]),
 .form-group select {
     width: 100%;
 }
@@ -211,10 +211,6 @@ body.settings-window {
     justify-content: flex-end;
     margin-top: 24px;
 }
-
-/* ==========================================================================
-   Markdown Content Styles
-   ========================================================================== */
 
 .message-content {
     line-height: 1.5;

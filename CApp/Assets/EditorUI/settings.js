@@ -125,7 +125,8 @@ const defaultSettings = {
     apiEndpoint: "https://api.openai.com/v1/chat/completions",
     apiKey: "",
     model: "gpt-4o-mini",
-    azureDeployment: ""
+    azureDeployment: "",
+    streaming: true
 };
 
 function loadSettings() {
@@ -155,6 +156,7 @@ const apiKeyInput = document.getElementById("apiKey");
 const modelSelect = document.getElementById("modelSelect");
 const azureOpenAiGroup = document.getElementById("azureOpenAiGroup");
 const azureDeploymentInput = document.getElementById("azureDeployment");
+const streamingCheckbox = document.getElementById("streaming");
 const saveSettings = document.getElementById("saveSettings");
 const cancelSettings = document.getElementById("cancelSettings");
 const closeButton = document.getElementById("closeButton");
@@ -217,6 +219,7 @@ endpointPresetSelect.value = currentSettings.endpointPreset;
 apiKeyInput.value = currentSettings.apiKey;
 modelSelect.value = currentSettings.model;
 azureDeploymentInput.value = currentSettings.azureDeployment || "";
+streamingCheckbox.checked = currentSettings.streaming;
 
 // エンドポイント入力欄の設定
 if (currentSettings.endpointPreset === "custom") {
@@ -258,7 +261,8 @@ saveSettings.addEventListener("click", () => {
         apiEndpoint: apiEndpoint,
         apiKey: apiKeyInput.value.trim(),
         model: modelSelect.value,
-        azureDeployment: azureDeploymentInput.value.trim()
+        azureDeployment: azureDeploymentInput.value.trim(),
+        streaming: streamingCheckbox.checked
     };
     saveSettingsToStorage(currentSettings);
 

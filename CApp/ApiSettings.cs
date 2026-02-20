@@ -8,4 +8,5 @@ public class ApiSettings
     public string ApiKey { get; set; } = "";
     public string Model { get; set; } = "";
     public string AzureDeployment { get; set; } = "";
+    public bool Streaming { get; set; } = true;
 }
