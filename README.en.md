@@ -1,4 +1,4 @@
-# WinUIExample
+# CApp
 [日本語](README.md) | English
 
 Example of a WinUI3 app and creating an installer.
