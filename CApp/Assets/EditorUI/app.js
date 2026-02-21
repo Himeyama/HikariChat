@@ -10,7 +10,6 @@ const closeCommand = () => {
     window.chrome.webview.postMessage("{ \"method\": \"tools/call\", \"params\": {\"name\": \"control\", \"arguments\": {\"command\": \"close\" }} }");
 }
 
-// 要素取得
 const btnMin = document.getElementById("Minimize");
 const btnMax = document.getElementById("Maximize");
 const btnRestore = document.getElementById("Restore");
@@ -39,9 +38,7 @@ btnRestore.addEventListener("click", () => {
 });
 btnClose.addEventListener("click", () => closeCommand());
 
-// Settings functionality
 const settingsButton = document.getElementById("settingsButton");
-
 const SETTINGS_KEY = "chatSettings";
 
 const defaultSettings = {
@@ -51,11 +48,7 @@ const defaultSettings = {
     apiKey: "",
     model: "gpt-4o-mini",
     azureDeployment: "",
-    streaming: true,
-    mcp: {
-        enabled: false,
-        mcpServers: {}
-    }
+    streaming: true
 };
 
 function loadSettings() {
@@ -76,124 +69,47 @@ function saveSettingsToStorage(settings) {
 
 let currentSettings = loadSettings();
 
-// 設定を再読み込み
+function updateModelDisplay() {
+    const modelDisplay = document.getElementById('modelDisplay');
+    if (!modelDisplay) return;
+    
+    const model = currentSettings.model || 'モデル未設定';
+    const endpointPreset = currentSettings.endpointPreset || 'unknown';
+    
+    const presetNames = {
+        openai: 'OpenAI',
+        azure_openai: 'Azure OpenAI',
+        gemini: 'Google Gemini',
+        grok: 'Grok (xAI)',
+        anthropic: 'Anthropic',
+        ollama: 'Ollama',
+        custom: 'Custom'
+    };
+    
+    const providerName = presetNames[endpointPreset] || endpointPreset;
+    modelDisplay.textContent = `${providerName} / ${model}`;
+}
+
 function refreshSettings() {
     currentSettings = loadSettings();
     console.log('[Settings Updated]', currentSettings);
-    
-    // MCP 状態を更新
-    updateMcpStatus();
-    
+    updateModelDisplay();
     const activeTab = getActiveTab();
     if (activeTab) {
         updateSendButtonState(activeTab);
     }
 }
 
-// MCP 接続状態を更新
-async function updateMcpStatus() {
-    const mcpStatus = document.getElementById('mcpStatus');
-    if (!mcpStatus) return;
-    
-    if (!currentSettings.mcp?.enabled) {
-        mcpStatus.textContent = 'MCP: 無効';
-        mcpStatus.className = 'mcp-status disabled';
-        return;
-    }
-    
-    try {
-        const servers = await getMcpServers();
-        if (servers && servers.length > 0) {
-            mcpStatus.textContent = `MCP: 接続中 (${servers.length}サーバー)`;
-            mcpStatus.className = 'mcp-status enabled';
-        } else {
-            mcpStatus.textContent = 'MCP: 接続なし';
-            mcpStatus.className = 'mcp-status disabled';
-        }
-    } catch {
-        mcpStatus.textContent = 'MCP: エラー';
-        mcpStatus.className = 'mcp-status disabled';
-    }
-}
-
-// MCP ツール一覧を取得
-async function getMcpTools(serverName = null) {
-    try {
-        const body = serverName ? { serverName } : {};
-        console.log('[MCP] Getting tools:', body);
-        const response = await fetch('/api/mcp/tools/list', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        const result = await response.json();
-        console.log('[MCP] Tools result:', result);
-        if (!response.ok) {
-            throw new Error(result.error || 'MCP ツール一覧取得エラー');
-        }
-        return result;
-    } catch (error) {
-        console.error('Failed to get MCP tools:', error);
-        throw error;
-    }
-}
-
-// MCP ツールを呼び出し
-async function callMcpTool(serverName, toolName, args = {}) {
-    try {
-        console.log('[MCP] Calling tool:', { serverName, toolName, args });
-        const response = await fetch('/api/mcp/tools/call', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ serverName, toolName, arguments: args })
-        });
-        const result = await response.json();
-        console.log('[MCP] Tool result:', result);
-        if (!response.ok) {
-            throw new Error(result.error || 'MCP ツール呼び出しエラー');
-        }
-        return result;
-    } catch (error) {
-        console.error('Failed to call MCP tool:', error);
-        throw error;
-    }
-}
-
-// 利用可能な MCP サーバー一覧を取得
-async function getMcpServers() {
-    try {
-        console.log('[MCP] Getting servers list...');
-        const response = await fetch('/api/mcp/tools/list', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-        console.log('[MCP] Response status:', response.status);
-        const result = await response.json();
-        console.log('[MCP] Servers result:', result);
-        if (!response.ok) {
-            throw new Error(result.error || 'MCP サーバー一覧取得エラー');
-        }
-        return result.servers || [];
-    } catch (error) {
-        console.error('Failed to get MCP servers:', error);
-        return [];
-    }
-}
-
 function openSettingsWindow() {
-    // C# 側に設定画面を開くメッセージを送信
     window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "openSettings", "arguments": {} } }');
 }
 
 settingsButton.addEventListener("click", openSettingsWindow);
 
-// Tab management
 let tabCounter = 1;
-let tabs = {}; // { tabId: { conversationHistory, isLoading } }
+let tabs = {};
 let activeTabId = "tab-chat-1";
 
-// 最初のタブを初期化
 tabs["tab-chat-1"] = {
     conversationHistory: [],
     isLoading: false
@@ -204,7 +120,6 @@ function getActiveTab() {
 }
 
 function getActiveTabElements() {
-    // tabId から番号を抽出 (例: "tab-chat-12" -> "12")
     const tabNum = activeTabId.replace('tab-chat-', '');
     return {
         chatMessages: document.getElementById(`chatMessages-${tabNum}`),
@@ -213,24 +128,16 @@ function getActiveTabElements() {
     };
 }
 
-// タブ ID から番号を取得
-function getTabNumber(tabId) {
-    return tabId.replace('tab-chat-', '');
-}
-
-// 新しいタブを追加
 function addNewTab() {
     tabCounter++;
     const tabId = `tab-chat-${tabCounter}`;
     const tabNum = tabCounter;
 
-    // タブデータを初期化
     tabs[tabId] = {
         conversationHistory: [],
         isLoading: false
     };
 
-    // タブボタンを追加
     const tabList = document.querySelector('.chat-tabs menu[role="tablist"]');
     const tabButton = document.createElement("button");
     tabButton.setAttribute("role", "tab");
@@ -241,7 +148,6 @@ function addNewTab() {
     tabButton.addEventListener("click", () => switchTab(tabId));
     tabList.appendChild(tabButton);
 
-    // タブパネルを追加（他のパネルの後に追加）
     const tabPanel = document.createElement("article");
     tabPanel.setAttribute("role", "tabpanel");
     tabPanel.setAttribute("id", tabId);
@@ -254,42 +160,30 @@ function addNewTab() {
         </div>
     `;
     document.querySelector('.chat-tabs').appendChild(tabPanel);
-    
-    // 新しいタブに切り替え
+
     switchTab(tabId);
-    
-    // 入力イベントをバインド
     bindInputEvents(tabNum);
 }
 
-// タブを切り替え
 function switchTab(tabId) {
-    // 現在のタブの送信ボタン状態を保存
-    const currentElems = getActiveTabElements();
-    
-    // すべてのタブの選択状態を解除
     document.querySelectorAll('.chat-tabs menu[role="tablist"] button[role="tab"]').forEach(t => {
         t.setAttribute("aria-selected", "false");
     });
-    
-    // すべてのパネルを非表示
+
     document.querySelectorAll('.chat-tabs article[role="tabpanel"]').forEach(panel => {
         panel.setAttribute("hidden", "true");
     });
-    
-    // 選択したタブをアクティブに
+
     document.getElementById(`${tabId}-btn`).setAttribute("aria-selected", "true");
     document.getElementById(tabId).removeAttribute("hidden");
-    
+
     activeTabId = tabId;
-    
-    // 新しいタブの送信ボタン状態を更新
-    const newElems = getActiveTabElements();
+
+    const elems = getActiveTabElements();
     updateSendButtonState();
-    newElems.chatInput.focus();
+    elems.chatInput.focus();
 }
 
-// 送信ボタンの状態を更新
 function updateSendButtonState() {
     const elems = getActiveTabElements();
     const tab = getActiveTab();
@@ -298,24 +192,22 @@ function updateSendButtonState() {
     elems.sendButton.disabled = !message || tab.isLoading || !hasApiKey;
 }
 
-// 入力イベントをバインド
 function bindInputEvents(tabNum) {
     const chatInput = document.getElementById(`chatInput-${tabNum}`);
     const sendButton = document.getElementById(`sendButton-${tabNum}`);
-    
+
     chatInput.addEventListener("input", updateSendButtonState);
-    
+
     chatInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
     });
-    
+
     sendButton.addEventListener("click", sendMessage);
 }
 
-// チャットをリセット
 function resetChat() {
     const tab = getActiveTab();
     const elems = getActiveTabElements();
@@ -328,11 +220,9 @@ function resetChat() {
 const resetButton = document.getElementById("resetButton");
 resetButton.addEventListener("click", resetChat);
 
-// タブ追加ボタン
 const addTabButton = document.getElementById("addTabButton");
 addTabButton.addEventListener("click", addNewTab);
 
-// メッセージを追加
 function addMessage(content, role) {
     const elems = getActiveTabElements();
     const messageDiv = document.createElement("div");
@@ -346,7 +236,6 @@ function addMessage(content, role) {
     const contentDiv = document.createElement("div");
     contentDiv.className = "message-content";
 
-    // Markdown としてレンダリング（ユーザーメッセージはプレーンテキスト）
     if (role === "assistant") {
         contentDiv.innerHTML = marked.parse(content);
     } else {
@@ -357,61 +246,6 @@ function addMessage(content, role) {
 
     elems.chatMessages.appendChild(messageDiv);
     elems.chatMessages.scrollTop = elems.chatMessages.scrollHeight;
-}
-
-let isLoading = false;
-
-// MCP ツール呼び出しを処理
-async function processMcpToolCall(message) {
-    // MCP が有効でない場合は何もしない
-    if (!currentSettings.mcp?.enabled) {
-        console.log('[MCP] MCP is not enabled');
-        return null;
-    }
-
-    // MCP ツール呼び出しコマンドを検出（例：@filesystem:read_file:/path/to/file）
-    const mcpPattern = /@(\w+):(\w+)(?::(.*))?/g;
-    const matches = [...message.matchAll(mcpPattern)];
-    
-    if (matches.length === 0) {
-        return null;
-    }
-
-    const results = [];
-    for (const match of matches) {
-        const [, serverName, toolName, argsStr] = match;
-        console.log('[MCP] Detected tool call:', { serverName, toolName, argsStr });
-        
-        // 引数をパース
-        let args = {};
-        if (argsStr) {
-            try {
-                // JSON としてパースを試みる
-                args = JSON.parse(argsStr);
-            } catch {
-                // JSON でない場合はパスとして扱う
-                args = { path: argsStr };
-            }
-        }
-
-        try {
-            // MCP ツールを呼び出し
-            const result = await callMcpTool(serverName, toolName, args);
-            results.push({
-                server: serverName,
-                tool: toolName,
-                result: result.result
-            });
-        } catch (error) {
-            results.push({
-                server: serverName,
-                tool: toolName,
-                error: error.message
-            });
-        }
-    }
-
-    return { results };
 }
 
 async function sendMessage() {
@@ -431,44 +265,20 @@ async function sendMessage() {
     tab.isLoading = true;
     updateSendButtonState();
 
-    // ユーザーメッセージを表示
     addMessage(message, "user");
     tab.conversationHistory.push({ role: "user", content: message });
     elems.chatInput.value = "";
 
-    // MCP ツール呼び出しをチェック
-    const mcpResult = await processMcpToolCall(message);
-    if (mcpResult && mcpResult.results) {
-        // MCP ツール呼び出し結果を表示
-        for (const r of mcpResult.results) {
-            if (r.error) {
-                addMessage(`MCP ツールエラー (${r.server}:${r.tool}):\n${r.error}`, "error");
-            } else {
-                const resultText = JSON.stringify(r.result, null, 2);
-                addMessage(`MCP ツール呼び出し結果 (${r.server}:${r.tool}):\n\`\`\`json\n${resultText}\n\`\`\``, "assistant");
-                tab.conversationHistory.push({ role: "assistant", content: `MCP ${r.server}:${r.tool} 実行結果：${resultText}` });
-            }
-        }
-        tab.isLoading = false;
-        updateSendButtonState();
-        elems.chatInput.focus();
-        return;
-    }
-
-    // ストリーミング用のプレースホルダーメッセージを作成
     let assistantMessageDiv = null;
     let assistantContent = "";
 
     try {
         if (currentSettings.streaming) {
-            // ストリーミング処理
             assistantMessageDiv = createAssistantMessageDiv();
 
             const response = await fetch("/api/chat", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     messages: tab.conversationHistory,
                     apiKey: currentSettings.apiKey,
@@ -510,7 +320,6 @@ async function sendMessage() {
                             if (parsed.choices && parsed.choices[0]?.delta?.content) {
                                 delta = parsed.choices[0].delta.content;
                             } else if (parsed.content && Array.isArray(parsed.content)) {
-                                // Anthropic 形式
                                 if (parsed.content[0]?.text) {
                                     delta = parsed.content[0].text;
                                 }
@@ -527,15 +336,11 @@ async function sendMessage() {
                 }
             }
 
-            // 会話履歴に追加
             tab.conversationHistory.push({ role: "assistant", content: assistantContent });
         } else {
-            // 通常処理
             const response = await fetch("/api/chat", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     messages: tab.conversationHistory,
                     apiKey: currentSettings.apiKey,
@@ -556,7 +361,6 @@ async function sendMessage() {
             const data = await response.json();
             let assistantMessage = "";
 
-            // API 種別に応じてレスポンスを処理
             if (currentSettings.apiType === "gemini") {
                 assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
             } else if (currentSettings.apiType === "anthropic") {
@@ -582,7 +386,6 @@ async function sendMessage() {
     }
 }
 
-// アシスタントメッセージ用の div を作成
 function createAssistantMessageDiv() {
     const elems = getActiveTabElements();
     const messageDiv = document.createElement("div");
@@ -603,36 +406,18 @@ function createAssistantMessageDiv() {
     return contentDiv;
 }
 
-// アシスタントメッセージを更新
 function updateAssistantMessage(contentDiv, content) {
     contentDiv.innerHTML = marked.parse(content);
     const elems = getActiveTabElements();
     elems.chatMessages.scrollTop = elems.chatMessages.scrollHeight;
 }
 
-// 初期状態を設定
 updateSendButtonState();
-
-// 最初のタブの入力イベントをバインド
 bindInputEvents(1);
+updateModelDisplay();
 
-// MCP 状態を初期化
-updateMcpStatus();
-
-// 設定更新通知を受信
 window.chrome.webview.addEventListener("message", (e) => {
     if (e.data === "settingsUpdated") {
         refreshSettings();
     }
-});
-
-// タブ切り替え機能
-const tabButtons = document.querySelectorAll('[role="tab"]');
-const tabPanels = document.querySelectorAll('[role="tabpanel"]');
-
-tabButtons.forEach(tab => {
-    tab.addEventListener("click", () => {
-        const tabId = tab.getAttribute("aria-controls");
-        switchTab(tabId);
-    });
 });

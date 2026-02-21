@@ -23,8 +23,6 @@
                 <!-- タブのリスト -->
                 <menu role="tablist" aria-label="設定タブ">
                     <button role="tab" aria-selected="true" aria-controls="tab-api" id="tab-api-btn">API 設定</button>
-                    <button role="tab" aria-selected="false" aria-controls="tab-model" id="tab-model-btn">モデル設定</button>
-                    <button role="tab" aria-selected="false" aria-controls="tab-mcp" id="tab-mcp-btn">MCP</button>
                     <button role="tab" aria-selected="false" aria-controls="tab-advanced" id="tab-advanced-btn">詳細設定</button>
                 </menu>
 
@@ -59,10 +57,6 @@
                         <label for="apiKey">API キー</label>
                         <input type="password" id="apiKey" placeholder="sk-..." />
                     </div>
-                </article>
-
-                <!-- モデル設定タブ -->
-                <article role="tabpanel" hidden id="tab-model">
                     <div class="form-group">
                         <label for="modelSelect">モデル</label>
                         <select id="modelSelect">
@@ -88,21 +82,6 @@
                     <div class="form-group" id="azureOpenAiGroup" style="display: none;">
                         <label for="azureDeployment">Azure OpenAI デプロイ名</label>
                         <input type="text" id="azureDeployment" placeholder="gpt-4o-mini" />
-                    </div>
-                </article>
-
-                <!-- MCP 設定タブ -->
-                <article role="tabpanel" hidden id="tab-mcp">
-                    <div class="form-group">
-                        <div class="field-row">
-                            <input type="checkbox" id="mcpEnabled" />
-                            <label for="mcpEnabled">MCP を有効にする</label>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="mcpJson">MCP サーバー設定（JSON 形式）</label>
-                        <textarea id="mcpJson" rows="15" placeholder='{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/files"]}}}'></textarea>
-                        <div class="mcp-json-info">MCP サーバーの設定を JSON 形式で入力してください</div>
                     </div>
                 </article>
 

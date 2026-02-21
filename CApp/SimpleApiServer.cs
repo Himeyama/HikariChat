@@ -52,11 +52,10 @@ public class SimpleApiServer : IDisposable
             try
             {
                 ctx = await _listener.GetContextAsync().ConfigureAwait(false);
-                _ = Task.Run(() => HandleContextAsync(ctx), ct); // fire-and-forget per request
+                _ = Task.Run(() => HandleContextAsync(ctx), ct);
             }
             catch (HttpListenerException) when (ct.IsCancellationRequested)
             {
-                // Listener stopped
                 break;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -65,7 +64,6 @@ public class SimpleApiServer : IDisposable
             }
             catch (Exception ex)
             {
-                // ログ出力など必要に応じて
                 Console.WriteLine("ListenLoop exception: " + ex);
             }
         }
@@ -98,7 +96,6 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
-            // POST /api/chat - Chat Completions API プロキシ
             if (path.Equals("/api/chat", StringComparison.OrdinalIgnoreCase))
             {
                 if (req.HttpMethod != "POST")
@@ -108,32 +105,6 @@ public class SimpleApiServer : IDisposable
                     return;
                 }
                 await HandleChatApiAsync(req, res);
-                return;
-            }
-
-            // POST /api/mcp/tools/list - MCP ツール一覧取得
-            if (path.Equals("/api/mcp/tools/list", StringComparison.OrdinalIgnoreCase))
-            {
-                if (req.HttpMethod != "POST")
-                {
-                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
-                    await WriteJsonAsync(res, new { error = "Method not allowed" });
-                    return;
-                }
-                await HandleMcpListToolsAsync(req, res);
-                return;
-            }
-
-            // POST /api/mcp/tools/call - MCP ツール呼び出し
-            if (path.Equals("/api/mcp/tools/call", StringComparison.OrdinalIgnoreCase))
-            {
-                if (req.HttpMethod != "POST")
-                {
-                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
-                    await WriteJsonAsync(res, new { error = "Method not allowed" });
-                    return;
-                }
-                await HandleMcpCallToolAsync(req, res);
                 return;
             }
 
@@ -152,7 +123,7 @@ public class SimpleApiServer : IDisposable
                 await WriteFileAsync(res, home);
                 return;
             }
-            
+
             if (path.Equals("/styles.css", StringComparison.OrdinalIgnoreCase))
             {
                 string home = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", "styles.css");
@@ -189,7 +160,6 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
-            // 未定義パス
             res.StatusCode = (int)HttpStatusCode.NotFound;
             await WriteJsonAsync(res, new { error = "Not found" });
         }
@@ -204,27 +174,6 @@ public class SimpleApiServer : IDisposable
         }
     }
 
-    string GetContentType(string fileFullPath)
-    {
-        string extension = Path.GetExtension(fileFullPath).ToLowerInvariant();
-        return extension switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".svg" => "image/svg+xml",
-            ".ico" => "image/x-icon",
-            ".pdf" => "application/pdf",
-            ".txt" => "text/plain",
-            ".html" => "text/html",
-            ".css" => "text/css",
-            ".js" => "application/javascript",
-            ".json" => "application/json",
-            _ => "application/octet-stream"
-        };
-    }
-
     async Task WriteJsonAsync(HttpListenerResponse res, object obj)
     {
         string json = JsonSerializer.Serialize(obj, _jsonOptions);
@@ -237,14 +186,12 @@ public class SimpleApiServer : IDisposable
     {
         try
         {
-            // リクエストボディを読み取る
             string requestBody;
             using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
             {
                 requestBody = await reader.ReadToEndAsync();
             }
 
-            // JSON をパース
             using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
             JsonElement messagesRoot = jsonDoc.RootElement;
 
@@ -255,7 +202,6 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
-            // クライアントから送信された設定を取得
             string apiKey = messagesRoot.TryGetProperty("apiKey", out JsonElement apiKeyElem)
                 ? apiKeyElem.GetString() ?? ""
                 : "";
@@ -280,7 +226,6 @@ public class SimpleApiServer : IDisposable
 
             Console.WriteLine($"[API] Request: apiType={apiType}, endpointPreset={endpointPreset}, apiEndpoint={apiEndpoint}, model={model}, streaming={streaming}");
 
-            // Ollama 以外は API キー必須
             if (string.IsNullOrEmpty(apiKey) && endpointPreset != "ollama")
             {
                 res.StatusCode = (int)HttpStatusCode.BadRequest;
@@ -288,14 +233,12 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
-            // ストリーミング処理
             if (streaming)
             {
                 await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment);
                 return;
             }
 
-            // API 種別に応じてリクエストを処理
             string responseJson = apiType switch
             {
                 "responses" => await HandleResponsesApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment),
@@ -304,7 +247,6 @@ public class SimpleApiServer : IDisposable
                 _ => await HandleChatCompletionsApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment)
             };
 
-            // クライアントに返す
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
             await res.OutputStream.WriteAsync(Encoding.UTF8.GetBytes(responseJson));
@@ -334,21 +276,17 @@ public class SimpleApiServer : IDisposable
 
         try
         {
-            // ストリーミング用のリクエストを作成
             string endpoint = apiEndpoint;
             if (endpointPreset == "azure_openai" && azureDeployment != "")
             {
                 endpoint = endpoint.Replace("{deployment}", azureDeployment);
             }
 
-            // messages をシリアライズ
             object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
-            
-            // API 種別に応じてリクエストボディを作成
+
             object requestPayload;
             if (apiType == "anthropic")
             {
-                // Anthropic 形式
                 List<object> anthropicMessages = new List<object>();
                 string? systemMessage = null;
 
@@ -383,7 +321,6 @@ public class SimpleApiServer : IDisposable
             }
             else
             {
-                // OpenAI 互換形式
                 requestPayload = new
                 {
                     model,
@@ -396,7 +333,7 @@ public class SimpleApiServer : IDisposable
 
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
             httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-            
+
             if (endpointPreset == "azure_openai")
             {
                 httpRequest.Headers.Add("api-key", apiKey);
@@ -405,14 +342,13 @@ public class SimpleApiServer : IDisposable
             {
                 httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
             }
-            
+
             if (apiType == "anthropic")
             {
                 httpRequest.Headers.Add("x-api-key", apiKey);
                 httpRequest.Headers.Add("anthropic-version", "2023-06-01");
             }
 
-            // ストリーミングレスポンスを処理
             using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
             httpResponse.EnsureSuccessStatusCode();
 
@@ -430,7 +366,6 @@ public class SimpleApiServer : IDisposable
                         break;
                     }
 
-                    // クライアントに転送
                     byte[] chunk = Encoding.UTF8.GetBytes($"data: {data}\n\n");
                     await res.OutputStream.WriteAsync(chunk, 0, chunk.Length);
                     await res.OutputStream.FlushAsync();
@@ -443,7 +378,6 @@ public class SimpleApiServer : IDisposable
         }
         finally
         {
-            // ストリームを閉じる
             await res.OutputStream.WriteAsync(Encoding.UTF8.GetBytes("data: [DONE]\n\n"), 0, 14);
             res.OutputStream.Close();
         }
@@ -451,14 +385,12 @@ public class SimpleApiServer : IDisposable
 
     async Task<string> HandleChatCompletionsApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment)
     {
-        // Azure OpenAI の場合はエンドポイントを書き換え
         string endpoint = apiEndpoint;
         if (endpointPreset == "azure_openai" && azureDeployment != "")
         {
             endpoint = endpoint.Replace("{deployment}", azureDeployment);
         }
 
-        // リクエストボディを作成
         var requestPayload = new
         {
             model,
@@ -470,7 +402,6 @@ public class SimpleApiServer : IDisposable
         using HttpRequestMessage httpRequest = new(HttpMethod.Post, endpoint);
         httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
 
-        // 認証ヘッダーの設定
         if (endpointPreset == "azure_openai")
         {
             httpRequest.Headers.Add("api-key", apiKey);
@@ -488,8 +419,6 @@ public class SimpleApiServer : IDisposable
 
     async Task<string> HandleResponsesApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment)
     {
-        // Responses API は OpenAI のみ対応
-        // messages を input に変換
         object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
         List<object> inputMessages = new();
         if (messages != null)
@@ -511,7 +440,7 @@ public class SimpleApiServer : IDisposable
 
         using HttpRequestMessage httpRequest = new(HttpMethod.Post, apiEndpoint);
         httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-        
+
         if (!string.IsNullOrEmpty(apiKey))
         {
             httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
@@ -525,7 +454,6 @@ public class SimpleApiServer : IDisposable
 
     async Task<string> HandleAnthropicApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement)
     {
-        // OpenAI 形式から Anthropic 形式に変換
         object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
         List<object> anthropicMessages = new();
         string? systemMessage = null;
@@ -573,14 +501,12 @@ public class SimpleApiServer : IDisposable
 
     async Task<string> HandleGeminiApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement)
     {
-        // Gemini API のエンドポイントを構築
         string endpoint = apiEndpoint.Replace("{model}", model);
         if (!endpoint.Contains("key="))
         {
             endpoint += (endpoint.Contains("?") ? "&" : "?") + "key=" + apiKey;
         }
 
-        // OpenAI 形式から Gemini 形式に変換
         object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
         List<object> contents = new();
 
@@ -593,7 +519,6 @@ public class SimpleApiServer : IDisposable
                 {
                     string role = roleElem.GetString() ?? "";
                     string content = contentElem.GetString() ?? "";
-                    // Gemini は user / model のみ
                     string geminiRole = (role == "assistant") ? "model" : "user";
                     contents.Add(new { role = geminiRole, parts = new[] { new { text = content } } });
                 }
@@ -611,139 +536,6 @@ public class SimpleApiServer : IDisposable
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
         httpResponse.EnsureSuccessStatusCode();
         return responseJson;
-    }
-
-    async Task HandleMcpListToolsAsync(HttpListenerRequest req, HttpListenerResponse res)
-    {
-        DebugLogger.Api($"HandleMcpListToolsAsync called - Method: {req.HttpMethod}, Path: {req.Url?.PathAndQuery}");
-        
-        try
-        {
-            // リクエストボディを読み取る
-            string requestBody;
-            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
-            {
-                requestBody = await reader.ReadToEndAsync();
-            }
-
-            DebugLogger.Api($"Request body: '{requestBody}'");
-
-            // App から MCP クライアントを取得
-            var app = App.Current as App;
-            var mcpClient = app?.GetMcpClient();
-
-            DebugLogger.Api($"MCP client: {(mcpClient == null ? "null" : "available")}");
-
-            if (mcpClient == null)
-            {
-                DebugLogger.Error("MCP client is null");
-                res.StatusCode = (int)HttpStatusCode.BadRequest;
-                await WriteJsonAsync(res, new { error = "MCP クライアントが初期化されていません", detail = "アプリ起動時に MCP 設定がロードされませんでした" });
-                return;
-            }
-
-            // サーバー名が指定されているかチェック
-            string? serverName = null;
-            if (!string.IsNullOrEmpty(requestBody))
-            {
-                try
-                {
-                    using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
-                    var root = jsonDoc.RootElement;
-                    serverName = root.TryGetProperty("serverName", out var serverElem)
-                        ? serverElem.GetString()
-                        : null;
-                }
-                catch (JsonException je)
-                {
-                    DebugLogger.Error($"JSON parse error: {je.Message}");
-                    // パースエラーでも続行する（サーバー名なしとして処理）
-                }
-            }
-
-            DebugLogger.Api($"Server name: {serverName ?? "(null)"}");
-
-            // サーバー名が指定されていない場合は接続中のサーバー一覧を返す
-            if (string.IsNullOrEmpty(serverName))
-            {
-                var servers = mcpClient.GetConnectedServers();
-                DebugLogger.Api($"Connected servers: [{string.Join(", ", servers)}]");
-                await WriteJsonAsync(res, new { servers });
-                return;
-            }
-
-            // ツール一覧を取得
-            DebugLogger.Api($"Getting tools for server: {serverName}");
-            var tools = await mcpClient.ListToolsAsync(serverName);
-            DebugLogger.Api($"Tools count: {tools.Count}");
-            await WriteJsonAsync(res, new { tools });
-        }
-        catch (Exception ex)
-        {
-            DebugLogger.Error($"HandleMcpListToolsAsync error: {ex.Message}");
-            DebugLogger.Error($"Stack trace: {ex.StackTrace}");
-            res.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await WriteJsonAsync(res, new { error = "MCP ツール一覧取得エラー", detail = ex.Message, stackTrace = ex.StackTrace });
-        }
-    }
-
-    async Task HandleMcpCallToolAsync(HttpListenerRequest req, HttpListenerResponse res)
-    {
-        try
-        {
-            // リクエストボディを読み取る
-            string requestBody;
-            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
-            {
-                requestBody = await reader.ReadToEndAsync();
-            }
-
-            // JSON をパース
-            using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
-            var root = jsonDoc.RootElement;
-
-            string? serverName = root.TryGetProperty("serverName", out var serverElem)
-                ? serverElem.GetString()
-                : null;
-            string? toolName = root.TryGetProperty("toolName", out var toolElem)
-                ? toolElem.GetString()
-                : null;
-            JsonElement? arguments = root.TryGetProperty("arguments", out var argsElem)
-                ? argsElem.Clone()
-                : null;
-
-            if (string.IsNullOrEmpty(serverName) || string.IsNullOrEmpty(toolName))
-            {
-                res.StatusCode = (int)HttpStatusCode.BadRequest;
-                await WriteJsonAsync(res, new { error = "serverName と toolName が必要です" });
-                return;
-            }
-
-            // App から MCP クライアントを取得
-            var app = App.Current as App;
-            var mcpClient = app?.GetMcpClient();
-
-            if (mcpClient == null)
-            {
-                res.StatusCode = (int)HttpStatusCode.BadRequest;
-                await WriteJsonAsync(res, new { error = "MCP クライアントが初期化されていません" });
-                return;
-            }
-
-            // ツールを呼び出し
-            var result = await mcpClient.CallToolAsync(serverName, toolName, arguments);
-            await WriteJsonAsync(res, new { result });
-        }
-        catch (TimeoutException ex)
-        {
-            res.StatusCode = (int)HttpStatusCode.GatewayTimeout;
-            await WriteJsonAsync(res, new { error = "MCP ツール呼び出しタイムアウト", detail = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            res.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await WriteJsonAsync(res, new { error = "MCP ツール呼び出しエラー", detail = ex.Message });
-        }
     }
 
     public void Dispose()

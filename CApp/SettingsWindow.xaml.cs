@@ -25,7 +25,6 @@ public sealed partial class SettingsWindow : Window
 
         this.mainWindow = mainWindow;
 
-        // 親ウィンドウが閉じられたら設定ウィンドウも閉じる
         if (this.mainWindow != null)
         {
             this.mainWindow.Closed += MainWindow_Closed;
@@ -36,15 +35,13 @@ public sealed partial class SettingsWindow : Window
 
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
 
-        // ウィンドウサイズを設定（DPI スケーリング対応）
         nint hwnd = WindowNative.GetWindowHandle(this);
         WindowId windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
         AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
 
-        // 現在のスケールファクターを取得
         double scale = GetDpiScale();
         int width = (int)(920 * scale);
-        int height = (int)(920 * scale);
+        int height = (int)(1000 * scale);
         appWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
 
         InitializeSettingsWebView();
@@ -52,7 +49,6 @@ public sealed partial class SettingsWindow : Window
 
     void MainWindow_Closed(object? sender, Microsoft.UI.Xaml.WindowEventArgs e)
     {
-        // 親ウィンドウが閉じられたら設定ウィンドウも閉じる
         if (mainWindow != null)
         {
             mainWindow.Closed -= MainWindow_Closed;
@@ -62,12 +58,10 @@ public sealed partial class SettingsWindow : Window
 
     double GetDpiScale()
     {
-        // XamlRoot から現在のスケールファクターを取得
         if (Content is FrameworkElement fe && fe.XamlRoot != null)
         {
             return fe.XamlRoot.RasterizationScale;
         }
-        // デフォルトは 1.0（96 DPI）
         return 1.0;
     }
 
@@ -89,9 +83,6 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>
-    /// WebView2 のナビゲーション完了時に Ollama 情報を送信
-    /// </summary>
     void SettingsWebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
         if (e.IsSuccess)
@@ -127,22 +118,18 @@ public sealed partial class SettingsWindow : Window
                         }
                         else if (tp.Name == "settingsUpdated")
                         {
-                            // メインウィンドウに設定更新を通知
                             NotifyMainwindowSettingsUpdated();
-                            // MCP クライアントの再初期化は SaveMcpSettingsToJsonAsync で行う
                         }
                         else if (tp.Name == "getOllamaInfo")
                         {
-                            // Ollama 情報を再送信
                             SendOllamaInfo();
                         }
-                        else if (tp.Name == "saveMcpSettings")
+                        else if (tp.Name == "saveSettings")
                         {
-                            // MCP 設定を保存
-                            string? mcpJson = tp.GetArgumentValue("mcpJson");
-                            if (!string.IsNullOrEmpty(mcpJson))
+                            string? settingsJson = tp.GetArgumentValue("settingsJson");
+                            if (!string.IsNullOrEmpty(settingsJson))
                             {
-                                await SaveMcpSettingsToJsonAsync(mcpJson);
+                                await SaveSettingsToJsonAsync(settingsJson);
                             }
                         }
                     }
@@ -155,49 +142,23 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    async Task SaveMcpSettingsToJsonAsync(string mcpJson)
+    async Task SaveSettingsToJsonAsync(string settingsJson)
     {
         try
         {
-            LogInfo($"SaveMcpSettingsToJsonAsync called with: {mcpJson}");
-            
-            // MCP 設定をパース
-            var mcpSettings = JsonSerializer.Deserialize<McpSettings>(mcpJson);
-            LogInfo($"Parsed MCP settings: enabled={mcpSettings?.Enabled}, servers={mcpSettings?.McpServers?.Count ?? 0}");
-            
-            // 既存の設定をロードして MCP 設定のみ更新
-            var settings = await ApiSettingsManager.LoadAsync();
-            LogInfo($"Loaded existing settings: MCP enabled={settings.Mcp?.Enabled}");
-            
-            settings.Mcp = mcpSettings ?? new McpSettings();
-            
-            // ファイルに保存
+            LogInfo($"SaveSettingsToJsonAsync called");
+
+            var settings = JsonSerializer.Deserialize<ApiSettings>(settingsJson);
+
             await ApiSettingsManager.SaveAsync(settings);
-            LogInfo($"MCP settings saved to file");
-            
-            // 保存直後にファイルから再読み込みして MCP クライアントを初期化
-            var verifySettings = await ApiSettingsManager.LoadAsync();
-            LogInfo($"Verified settings: enabled={verifySettings.Mcp?.Enabled}, servers={verifySettings.Mcp?.McpServers?.Count ?? 0}");
-            
-            // MCP クライアントを再初期化
-            var app = Application.Current as App;
-            if (app != null && verifySettings.Mcp != null && verifySettings.Mcp.Enabled)
-            {
-                LogInfo("Re-initializing MCP client...");
-                await app.InitializeMcpClientAsync(verifySettings.Mcp);
-                LogInfo("MCP client re-initialized");
-            }
+            LogInfo($"Settings saved to file");
         }
         catch (Exception ex)
         {
-            LogInfo($"Failed to save MCP settings: {ex.Message}");
-            LogInfo($"Stack trace: {ex.StackTrace}");
+            LogInfo($"Failed to save settings: {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// Ollama 情報を JavaScript に送信
-    /// </summary>
     public void SendOllamaInfo()
     {
         if (mainWindow != null)
@@ -220,21 +181,6 @@ public sealed partial class SettingsWindow : Window
         if (mainWindow != null)
         {
             mainWindow.NotifySettingsUpdated();
-        }
-    }
-
-    async Task<McpSettings> LoadMcpSettingsAsync()
-    {
-        // ファイルから設定をロード
-        try
-        {
-            var apiSettings = await ApiSettingsManager.LoadAsync();
-            return apiSettings.Mcp;
-        }
-        catch (Exception ex)
-        {
-            LogInfo($"Failed to load MCP settings: {ex.Message}");
-            return new McpSettings();
         }
     }
 

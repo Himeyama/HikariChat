@@ -67,9 +67,8 @@ public static class ApiSettingsManager
             {
                 var json = await File.ReadAllTextAsync(SettingsPath);
                 DebugLogger.Settings($"JSON: {json}");
-                
+
                 var settings = JsonSerializer.Deserialize<ApiSettings>(json);
-                DebugLogger.Settings($"Loaded: MCP enabled={settings?.Mcp?.Enabled}, servers={settings?.Mcp?.McpServers?.Count ?? 0}");
                 return settings ?? new ApiSettings();
             }
         }
