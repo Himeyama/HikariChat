@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using CApp;
 
 public class SimpleApiServer : IDisposable
 {
@@ -107,6 +108,32 @@ public class SimpleApiServer : IDisposable
                     return;
                 }
                 await HandleChatApiAsync(req, res);
+                return;
+            }
+
+            // POST /api/mcp/tools/list - MCP ツール一覧取得
+            if (path.Equals("/api/mcp/tools/list", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "POST")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleMcpListToolsAsync(req, res);
+                return;
+            }
+
+            // POST /api/mcp/tools/call - MCP ツール呼び出し
+            if (path.Equals("/api/mcp/tools/call", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "POST")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleMcpCallToolAsync(req, res);
                 return;
             }
 
@@ -584,6 +611,139 @@ public class SimpleApiServer : IDisposable
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
         httpResponse.EnsureSuccessStatusCode();
         return responseJson;
+    }
+
+    async Task HandleMcpListToolsAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        DebugLogger.Api($"HandleMcpListToolsAsync called - Method: {req.HttpMethod}, Path: {req.Url?.PathAndQuery}");
+        
+        try
+        {
+            // リクエストボディを読み取る
+            string requestBody;
+            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
+
+            DebugLogger.Api($"Request body: '{requestBody}'");
+
+            // App から MCP クライアントを取得
+            var app = App.Current as App;
+            var mcpClient = app?.GetMcpClient();
+
+            DebugLogger.Api($"MCP client: {(mcpClient == null ? "null" : "available")}");
+
+            if (mcpClient == null)
+            {
+                DebugLogger.Error("MCP client is null");
+                res.StatusCode = (int)HttpStatusCode.BadRequest;
+                await WriteJsonAsync(res, new { error = "MCP クライアントが初期化されていません", detail = "アプリ起動時に MCP 設定がロードされませんでした" });
+                return;
+            }
+
+            // サーバー名が指定されているかチェック
+            string? serverName = null;
+            if (!string.IsNullOrEmpty(requestBody))
+            {
+                try
+                {
+                    using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
+                    var root = jsonDoc.RootElement;
+                    serverName = root.TryGetProperty("serverName", out var serverElem)
+                        ? serverElem.GetString()
+                        : null;
+                }
+                catch (JsonException je)
+                {
+                    DebugLogger.Error($"JSON parse error: {je.Message}");
+                    // パースエラーでも続行する（サーバー名なしとして処理）
+                }
+            }
+
+            DebugLogger.Api($"Server name: {serverName ?? "(null)"}");
+
+            // サーバー名が指定されていない場合は接続中のサーバー一覧を返す
+            if (string.IsNullOrEmpty(serverName))
+            {
+                var servers = mcpClient.GetConnectedServers();
+                DebugLogger.Api($"Connected servers: [{string.Join(", ", servers)}]");
+                await WriteJsonAsync(res, new { servers });
+                return;
+            }
+
+            // ツール一覧を取得
+            DebugLogger.Api($"Getting tools for server: {serverName}");
+            var tools = await mcpClient.ListToolsAsync(serverName);
+            DebugLogger.Api($"Tools count: {tools.Count}");
+            await WriteJsonAsync(res, new { tools });
+        }
+        catch (Exception ex)
+        {
+            DebugLogger.Error($"HandleMcpListToolsAsync error: {ex.Message}");
+            DebugLogger.Error($"Stack trace: {ex.StackTrace}");
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "MCP ツール一覧取得エラー", detail = ex.Message, stackTrace = ex.StackTrace });
+        }
+    }
+
+    async Task HandleMcpCallToolAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        try
+        {
+            // リクエストボディを読み取る
+            string requestBody;
+            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
+
+            // JSON をパース
+            using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
+            var root = jsonDoc.RootElement;
+
+            string? serverName = root.TryGetProperty("serverName", out var serverElem)
+                ? serverElem.GetString()
+                : null;
+            string? toolName = root.TryGetProperty("toolName", out var toolElem)
+                ? toolElem.GetString()
+                : null;
+            JsonElement? arguments = root.TryGetProperty("arguments", out var argsElem)
+                ? argsElem.Clone()
+                : null;
+
+            if (string.IsNullOrEmpty(serverName) || string.IsNullOrEmpty(toolName))
+            {
+                res.StatusCode = (int)HttpStatusCode.BadRequest;
+                await WriteJsonAsync(res, new { error = "serverName と toolName が必要です" });
+                return;
+            }
+
+            // App から MCP クライアントを取得
+            var app = App.Current as App;
+            var mcpClient = app?.GetMcpClient();
+
+            if (mcpClient == null)
+            {
+                res.StatusCode = (int)HttpStatusCode.BadRequest;
+                await WriteJsonAsync(res, new { error = "MCP クライアントが初期化されていません" });
+                return;
+            }
+
+            // ツールを呼び出し
+            var result = await mcpClient.CallToolAsync(serverName, toolName, arguments);
+            await WriteJsonAsync(res, new { result });
+        }
+        catch (TimeoutException ex)
+        {
+            res.StatusCode = (int)HttpStatusCode.GatewayTimeout;
+            await WriteJsonAsync(res, new { error = "MCP ツール呼び出しタイムアウト", detail = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "MCP ツール呼び出しエラー", detail = ex.Message });
+        }
     }
 
     public void Dispose()

@@ -138,7 +138,11 @@ const defaultSettings = {
     apiKey: "",
     model: "gpt-4o-mini",
     azureDeployment: "",
-    streaming: true
+    streaming: true,
+    mcp: {
+        enabled: false,
+        mcpServers: {}
+    }
 };
 
 function loadSettings() {
@@ -172,6 +176,10 @@ const streamingCheckbox = document.getElementById("streaming");
 const saveSettings = document.getElementById("saveSettings");
 const cancelSettings = document.getElementById("cancelSettings");
 const closeButton = document.getElementById("closeButton");
+
+// MCP 設定用要素
+const mcpEnabledCheckbox = document.getElementById("mcpEnabled");
+const mcpJsonTextarea = document.getElementById("mcpJson");
 
 // エンドポイント更新
 function updateEndpoint() {
@@ -278,6 +286,14 @@ apiKeyInput.value = currentSettings.apiKey;
 modelSelect.value = currentSettings.model;
 azureDeploymentInput.value = currentSettings.azureDeployment || "";
 streamingCheckbox.checked = currentSettings.streaming;
+mcpEnabledCheckbox.checked = currentSettings.mcp?.enabled || false;
+
+// MCP 設定を JSON 形式で表示
+if (currentSettings.mcp?.mcpServers && Object.keys(currentSettings.mcp.mcpServers).length > 0) {
+    mcpJsonTextarea.value = JSON.stringify({ mcpServers: currentSettings.mcp.mcpServers }, null, 2);
+} else {
+    mcpJsonTextarea.value = "";
+}
 
 // エンドポイントプリセットを API 種別に基づいて設定
 const compatible = compatibleEndpoints[currentSettings.apiType] || [];
@@ -357,18 +373,31 @@ saveSettings.addEventListener("click", () => {
     const preset = endpointPresetSelect.value;
     const apiType = apiTypeSelect.value;
     let apiEndpoint = apiEndpointInput.value.trim();
-    
+
     // エンドポイントが空の場合、プリセットから取得
     if (!apiEndpoint) {
         apiEndpoint = endpoints[preset]?.[apiType] || "";
     }
-    
+
     // それでも空の場合はエラー
     if (!apiEndpoint && preset !== "custom") {
         alert("この API 種別とエンドポイントの組み合わせはサポートされていません。");
         return;
     }
-    
+
+    // MCP 設定を JSON から解析
+    let mcpServers = {};
+    const mcpJson = mcpJsonTextarea.value.trim();
+    if (mcpJson) {
+        try {
+            const parsed = JSON.parse(mcpJson);
+            mcpServers = parsed.mcpServers || {};
+        } catch (e) {
+            alert("MCP 設定の JSON 形式が不正です：" + e.message);
+            return;
+        }
+    }
+
     currentSettings = {
         apiType: apiType,
         endpointPreset: preset,
@@ -376,9 +405,25 @@ saveSettings.addEventListener("click", () => {
         apiKey: apiKeyInput.value.trim(),
         model: modelSelect.value,
         azureDeployment: azureDeploymentInput.value.trim(),
-        streaming: streamingCheckbox.checked
+        streaming: streamingCheckbox.checked,
+        mcp: {
+            enabled: mcpEnabledCheckbox.checked,
+            mcpServers: mcpServers
+        }
     };
     saveSettingsToStorage(currentSettings);
+
+    // C# 側に MCP 設定を保存
+    // 最新の currentSettings を使用
+    window.chrome.webview.postMessage(JSON.stringify({
+        method: "tools/call",
+        params: {
+            name: "saveMcpSettings",
+            arguments: {
+                mcpJson: JSON.stringify(currentSettings.mcp)
+            }
+        }
+    }));
 
     // メインウィンドウに設定更新を通知
     window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "settingsUpdated", "arguments": {} } }');

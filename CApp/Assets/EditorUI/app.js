@@ -51,7 +51,11 @@ const defaultSettings = {
     apiKey: "",
     model: "gpt-4o-mini",
     azureDeployment: "",
-    streaming: true
+    streaming: true,
+    mcp: {
+        enabled: false,
+        mcpServers: {}
+    }
 };
 
 function loadSettings() {
@@ -76,9 +80,104 @@ let currentSettings = loadSettings();
 function refreshSettings() {
     currentSettings = loadSettings();
     console.log('[Settings Updated]', currentSettings);
+    
+    // MCP 状態を更新
+    updateMcpStatus();
+    
     const activeTab = getActiveTab();
     if (activeTab) {
         updateSendButtonState(activeTab);
+    }
+}
+
+// MCP 接続状態を更新
+async function updateMcpStatus() {
+    const mcpStatus = document.getElementById('mcpStatus');
+    if (!mcpStatus) return;
+    
+    if (!currentSettings.mcp?.enabled) {
+        mcpStatus.textContent = 'MCP: 無効';
+        mcpStatus.className = 'mcp-status disabled';
+        return;
+    }
+    
+    try {
+        const servers = await getMcpServers();
+        if (servers && servers.length > 0) {
+            mcpStatus.textContent = `MCP: 接続中 (${servers.length}サーバー)`;
+            mcpStatus.className = 'mcp-status enabled';
+        } else {
+            mcpStatus.textContent = 'MCP: 接続なし';
+            mcpStatus.className = 'mcp-status disabled';
+        }
+    } catch {
+        mcpStatus.textContent = 'MCP: エラー';
+        mcpStatus.className = 'mcp-status disabled';
+    }
+}
+
+// MCP ツール一覧を取得
+async function getMcpTools(serverName = null) {
+    try {
+        const body = serverName ? { serverName } : {};
+        console.log('[MCP] Getting tools:', body);
+        const response = await fetch('/api/mcp/tools/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const result = await response.json();
+        console.log('[MCP] Tools result:', result);
+        if (!response.ok) {
+            throw new Error(result.error || 'MCP ツール一覧取得エラー');
+        }
+        return result;
+    } catch (error) {
+        console.error('Failed to get MCP tools:', error);
+        throw error;
+    }
+}
+
+// MCP ツールを呼び出し
+async function callMcpTool(serverName, toolName, args = {}) {
+    try {
+        console.log('[MCP] Calling tool:', { serverName, toolName, args });
+        const response = await fetch('/api/mcp/tools/call', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serverName, toolName, arguments: args })
+        });
+        const result = await response.json();
+        console.log('[MCP] Tool result:', result);
+        if (!response.ok) {
+            throw new Error(result.error || 'MCP ツール呼び出しエラー');
+        }
+        return result;
+    } catch (error) {
+        console.error('Failed to call MCP tool:', error);
+        throw error;
+    }
+}
+
+// 利用可能な MCP サーバー一覧を取得
+async function getMcpServers() {
+    try {
+        console.log('[MCP] Getting servers list...');
+        const response = await fetch('/api/mcp/tools/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        console.log('[MCP] Response status:', response.status);
+        const result = await response.json();
+        console.log('[MCP] Servers result:', result);
+        if (!response.ok) {
+            throw new Error(result.error || 'MCP サーバー一覧取得エラー');
+        }
+        return result.servers || [];
+    } catch (error) {
+        console.error('Failed to get MCP servers:', error);
+        return [];
     }
 }
 
@@ -262,6 +361,59 @@ function addMessage(content, role) {
 
 let isLoading = false;
 
+// MCP ツール呼び出しを処理
+async function processMcpToolCall(message) {
+    // MCP が有効でない場合は何もしない
+    if (!currentSettings.mcp?.enabled) {
+        console.log('[MCP] MCP is not enabled');
+        return null;
+    }
+
+    // MCP ツール呼び出しコマンドを検出（例：@filesystem:read_file:/path/to/file）
+    const mcpPattern = /@(\w+):(\w+)(?::(.*))?/g;
+    const matches = [...message.matchAll(mcpPattern)];
+    
+    if (matches.length === 0) {
+        return null;
+    }
+
+    const results = [];
+    for (const match of matches) {
+        const [, serverName, toolName, argsStr] = match;
+        console.log('[MCP] Detected tool call:', { serverName, toolName, argsStr });
+        
+        // 引数をパース
+        let args = {};
+        if (argsStr) {
+            try {
+                // JSON としてパースを試みる
+                args = JSON.parse(argsStr);
+            } catch {
+                // JSON でない場合はパスとして扱う
+                args = { path: argsStr };
+            }
+        }
+
+        try {
+            // MCP ツールを呼び出し
+            const result = await callMcpTool(serverName, toolName, args);
+            results.push({
+                server: serverName,
+                tool: toolName,
+                result: result.result
+            });
+        } catch (error) {
+            results.push({
+                server: serverName,
+                tool: toolName,
+                error: error.message
+            });
+        }
+    }
+
+    return { results };
+}
+
 async function sendMessage() {
     const elems = getActiveTabElements();
     const tab = getActiveTab();
@@ -283,6 +435,25 @@ async function sendMessage() {
     addMessage(message, "user");
     tab.conversationHistory.push({ role: "user", content: message });
     elems.chatInput.value = "";
+
+    // MCP ツール呼び出しをチェック
+    const mcpResult = await processMcpToolCall(message);
+    if (mcpResult && mcpResult.results) {
+        // MCP ツール呼び出し結果を表示
+        for (const r of mcpResult.results) {
+            if (r.error) {
+                addMessage(`MCP ツールエラー (${r.server}:${r.tool}):\n${r.error}`, "error");
+            } else {
+                const resultText = JSON.stringify(r.result, null, 2);
+                addMessage(`MCP ツール呼び出し結果 (${r.server}:${r.tool}):\n\`\`\`json\n${resultText}\n\`\`\``, "assistant");
+                tab.conversationHistory.push({ role: "assistant", content: `MCP ${r.server}:${r.tool} 実行結果：${resultText}` });
+            }
+        }
+        tab.isLoading = false;
+        updateSendButtonState();
+        elems.chatInput.focus();
+        return;
+    }
 
     // ストリーミング用のプレースホルダーメッセージを作成
     let assistantMessageDiv = null;
@@ -444,6 +615,9 @@ updateSendButtonState();
 
 // 最初のタブの入力イベントをバインド
 bindInputEvents(1);
+
+// MCP 状態を初期化
+updateMcpStatus();
 
 // 設定更新通知を受信
 window.chrome.webview.addEventListener("message", (e) => {

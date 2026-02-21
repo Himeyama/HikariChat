@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -105,6 +106,11 @@ public sealed partial class SettingsWindow : Window
         if (string.IsNullOrEmpty(json))
             return;
 
+        _ = ProcessWebMessageAsync(json);
+    }
+
+    async Task ProcessWebMessageAsync(string json)
+    {
         try
         {
             using JsonDocument doc = JsonDocument.Parse(json);
@@ -123,11 +129,21 @@ public sealed partial class SettingsWindow : Window
                         {
                             // メインウィンドウに設定更新を通知
                             NotifyMainwindowSettingsUpdated();
+                            // MCP クライアントの再初期化は SaveMcpSettingsToJsonAsync で行う
                         }
                         else if (tp.Name == "getOllamaInfo")
                         {
                             // Ollama 情報を再送信
                             SendOllamaInfo();
+                        }
+                        else if (tp.Name == "saveMcpSettings")
+                        {
+                            // MCP 設定を保存
+                            string? mcpJson = tp.GetArgumentValue("mcpJson");
+                            if (!string.IsNullOrEmpty(mcpJson))
+                            {
+                                await SaveMcpSettingsToJsonAsync(mcpJson);
+                            }
                         }
                     }
                 }
@@ -136,6 +152,46 @@ public sealed partial class SettingsWindow : Window
         catch (Exception ex)
         {
             LogInfo(ex.Message);
+        }
+    }
+
+    async Task SaveMcpSettingsToJsonAsync(string mcpJson)
+    {
+        try
+        {
+            LogInfo($"SaveMcpSettingsToJsonAsync called with: {mcpJson}");
+            
+            // MCP 設定をパース
+            var mcpSettings = JsonSerializer.Deserialize<McpSettings>(mcpJson);
+            LogInfo($"Parsed MCP settings: enabled={mcpSettings?.Enabled}, servers={mcpSettings?.McpServers?.Count ?? 0}");
+            
+            // 既存の設定をロードして MCP 設定のみ更新
+            var settings = await ApiSettingsManager.LoadAsync();
+            LogInfo($"Loaded existing settings: MCP enabled={settings.Mcp?.Enabled}");
+            
+            settings.Mcp = mcpSettings ?? new McpSettings();
+            
+            // ファイルに保存
+            await ApiSettingsManager.SaveAsync(settings);
+            LogInfo($"MCP settings saved to file");
+            
+            // 保存直後にファイルから再読み込みして MCP クライアントを初期化
+            var verifySettings = await ApiSettingsManager.LoadAsync();
+            LogInfo($"Verified settings: enabled={verifySettings.Mcp?.Enabled}, servers={verifySettings.Mcp?.McpServers?.Count ?? 0}");
+            
+            // MCP クライアントを再初期化
+            var app = Application.Current as App;
+            if (app != null && verifySettings.Mcp != null && verifySettings.Mcp.Enabled)
+            {
+                LogInfo("Re-initializing MCP client...");
+                await app.InitializeMcpClientAsync(verifySettings.Mcp);
+                LogInfo("MCP client re-initialized");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogInfo($"Failed to save MCP settings: {ex.Message}");
+            LogInfo($"Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -164,6 +220,21 @@ public sealed partial class SettingsWindow : Window
         if (mainWindow != null)
         {
             mainWindow.NotifySettingsUpdated();
+        }
+    }
+
+    async Task<McpSettings> LoadMcpSettingsAsync()
+    {
+        // ファイルから設定をロード
+        try
+        {
+            var apiSettings = await ApiSettingsManager.LoadAsync();
+            return apiSettings.Mcp;
+        }
+        catch (Exception ex)
+        {
+            LogInfo($"Failed to load MCP settings: {ex.Message}");
+            return new McpSettings();
         }
     }
 

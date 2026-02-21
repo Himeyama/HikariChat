@@ -106,6 +106,24 @@ body.settings-window {
     align-items: center;
 }
 
+.mcp-status {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #f0f0f0;
+    color: #666;
+}
+
+.mcp-status.enabled {
+    background: #d4edda;
+    color: #155724;
+}
+
+.mcp-status.disabled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
 .add-tab-button {
     cursor: pointer;
     font-weight: bold;
@@ -379,4 +397,22 @@ body.settings-window {
 article {
     display: grid;
     grid-template-rows: 1fr auto;
+}
+
+
+/* ==========================================================================
+   MCP Server Settings Styles
+   ========================================================================== */
+
+.mcp-json-info {
+    font-size: 12px;
+    color: #666;
+    margin-top: 8px;
+}
+
+#mcpJson {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    width: 100% !important;
+    height: 152px;
 }
