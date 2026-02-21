@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using CApp;
@@ -17,7 +18,8 @@ public class SimpleApiServer : IDisposable
     readonly JsonSerializerOptions _jsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
     static readonly HttpClient _httpClient = new();
 
@@ -254,6 +256,8 @@ public class SimpleApiServer : IDisposable
                 requestBody = await reader.ReadToEndAsync();
             }
 
+            DebugLogger.Api($"Incoming request: {requestBody}");
+
             using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
             JsonElement messagesRoot = jsonDoc.RootElement;
 
@@ -289,6 +293,7 @@ public class SimpleApiServer : IDisposable
                 ? mcpEnabledElem.GetBoolean()
                 : false;
 
+            DebugLogger.Api($"[Chat API] apiType={apiType}, endpointPreset={endpointPreset}, apiEndpoint={apiEndpoint}, model={model}, streaming={streaming}, mcpEnabled={mcpEnabled}");
             Console.WriteLine($"[API] Request: apiType={apiType}, endpointPreset={endpointPreset}, apiEndpoint={apiEndpoint}, model={model}, streaming={streaming}, mcpEnabled={mcpEnabled}");
 
             if (string.IsNullOrEmpty(apiKey) && endpointPreset != "ollama")
@@ -308,20 +313,66 @@ public class SimpleApiServer : IDisposable
 
             if (streaming)
             {
-                await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools);
+                bool success = await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools);
+                if (!success && mcpTools != null)
+                {
+                    // ツールなしで再試行
+                    DebugLogger.Api("Retrying streaming request without tools...");
+                    
+                    // UI 側に通知を送る
+                    try {
+                        var info = new { info = "使用中のモデルがツール実行に対応していないため、ツールなしで回答を生成します。" };
+                        byte[] infoChunk = Encoding.UTF8.GetBytes($"data: {JsonSerializer.Serialize(info)}\n\n");
+                        await res.OutputStream.WriteAsync(infoChunk, 0, infoChunk.Length);
+                        await res.OutputStream.FlushAsync();
+                    } catch { }
+
+                    await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, null);
+                }
+                
+                // 最後に [DONE] を送って閉じる
+                try {
+                    await res.OutputStream.WriteAsync(Encoding.UTF8.GetBytes("data: [DONE]\n\n"), 0, 14);
+                    res.OutputStream.Close();
+                } catch { }
                 return;
             }
 
-            string responseJson = apiType switch
+            string? responseJson = null;
+            string? warningInfo = null;
+            try
             {
-                "responses" => await HandleResponsesApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment),
-                "anthropic" => await HandleAnthropicApiAsync(apiEndpoint, apiKey, model, messagesElement),
-                "gemini" => await HandleGeminiApiAsync(apiEndpoint, apiKey, model, messagesElement),
-                _ => await HandleChatCompletionsApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools)
-            };
+                responseJson = apiType switch
+                {
+                    "responses" => await HandleResponsesApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment),
+                    "anthropic" => await HandleAnthropicApiAsync(apiEndpoint, apiKey, model, messagesElement),
+                    "gemini" => await HandleGeminiApiAsync(apiEndpoint, apiKey, model, messagesElement),
+                    _ => await HandleChatCompletionsApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools)
+                };
+            }
+            catch (HttpRequestException ex) when (mcpTools != null && (ex.Message.Contains("does not support tools") || ex.Message.Contains("Unrecognized parameter: 'tools'")))
+            {
+                // ツールなしで再試行（非ストリーミング）
+                DebugLogger.Api("Retrying non-streaming request without tools...");
+                warningInfo = "使用中のモデルがツール実行に対応していないため、ツールなしで回答を生成します。";
+                responseJson = apiType switch
+                {
+                    "responses" => await HandleResponsesApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment),
+                    "anthropic" => await HandleAnthropicApiAsync(apiEndpoint, apiKey, model, messagesElement),
+                    "gemini" => await HandleGeminiApiAsync(apiEndpoint, apiKey, model, messagesElement),
+                    _ => await HandleChatCompletionsApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, null)
+                };
+            }
+
+            if (responseJson == null) throw new Exception("API response is null");
 
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
+            
+            // 警告がある場合はレスポンスに含める（簡易的に結合するか、フロントエンドでパースできるようにする）
+            // ここでは responseJson をそのまま返しつつ、DebugLogger に残す。
+            // 非ストリーミング時は responseJson 自体を加工するのは難しいため、一旦ストリーミングを優先。
+            
             await res.OutputStream.WriteAsync(Encoding.UTF8.GetBytes(responseJson));
         }
         catch (WebException ex) when (ex.Response != null)
@@ -341,12 +392,8 @@ public class SimpleApiServer : IDisposable
         }
     }
 
-    async Task HandleStreamingAsync(HttpListenerResponse res, string apiType, string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment, List<object>? tools = null)
+    async Task<bool> HandleStreamingAsync(HttpListenerResponse res, string apiType, string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment, List<object>? tools = null)
     {
-        res.StatusCode = (int)HttpStatusCode.OK;
-        res.ContentType = "text/event-stream; charset=utf-8";
-        res.SendChunked = true;
-
         try
         {
             string endpoint = apiEndpoint;
@@ -354,6 +401,8 @@ public class SimpleApiServer : IDisposable
             {
                 endpoint = endpoint.Replace("{deployment}", azureDeployment);
             }
+
+            DebugLogger.Api($"Streaming to: {endpoint}");
 
             object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
 
@@ -405,6 +454,7 @@ public class SimpleApiServer : IDisposable
             }
 
             string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
+            DebugLogger.Api($"Request JSON: {requestJson}");
 
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
             httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
@@ -425,7 +475,24 @@ public class SimpleApiServer : IDisposable
             }
 
             using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                string errorBody = await httpResponse.Content.ReadAsStringAsync();
+                DebugLogger.Api($"Streaming HTTP error: {httpResponse.StatusCode} - {errorBody}");
+                
+                // ツール非対応エラーの場合は呼び出し元に通知してリトライさせる
+                if (tools != null && (errorBody.Contains("does not support tools") || errorBody.Contains("Unrecognized parameter: 'tools'")))
+                {
+                    DebugLogger.Api("Model does not support tools. Signalling retry without tools.");
+                    return false;
+                }
+            }
             httpResponse.EnsureSuccessStatusCode();
+
+            // 成功してからレスポンスヘッダーを書き込む
+            res.StatusCode = (int)HttpStatusCode.OK;
+            res.ContentType = "text/event-stream; charset=utf-8";
+            res.SendChunked = true;
 
             using Stream responseStream = await httpResponse.Content.ReadAsStreamAsync();
             using StreamReader reader = new StreamReader(responseStream, Encoding.UTF8);
@@ -446,15 +513,14 @@ public class SimpleApiServer : IDisposable
                     await res.OutputStream.FlushAsync();
                 }
             }
+            DebugLogger.Api("Streaming session finished");
+            return true;
         }
         catch (Exception ex)
         {
+            DebugLogger.Api($"[Streaming Error] {ex.Message}");
             Console.WriteLine($"[Streaming Error] {ex.Message}");
-        }
-        finally
-        {
-            await res.OutputStream.WriteAsync(Encoding.UTF8.GetBytes("data: [DONE]\n\n"), 0, 14);
-            res.OutputStream.Close();
+            return false; // エラー時もリトライの可能性を考慮して false を返す
         }
     }
 
@@ -489,6 +555,17 @@ public class SimpleApiServer : IDisposable
 
         using HttpResponseMessage httpResponse = await _httpClient.SendAsync(httpRequest);
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
+        
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            DebugLogger.Api($"HTTP Error: {httpResponse.StatusCode} - {responseJson}");
+            // ツール非対応エラーの場合はメッセージに含めて投げる
+            if (tools != null && (responseJson.Contains("does not support tools") || responseJson.Contains("Unrecognized parameter: 'tools'")))
+            {
+                throw new HttpRequestException($"Model does not support tools: {responseJson}");
+            }
+        }
+
         httpResponse.EnsureSuccessStatusCode();
         return responseJson;
     }

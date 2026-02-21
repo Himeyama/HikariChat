@@ -321,7 +321,7 @@ function addMessage(content, role) {
 
     const roleSpan = document.createElement("div");
     roleSpan.className = "role";
-    roleSpan.textContent = role === "user" ? "あなた" : (role === "assistant" ? "AI" : "エラー");
+    roleSpan.textContent = role === "user" ? "あなた" : (role === "assistant" ? "AI" : (role === "system" ? "システム" : "エラー"));
     messageDiv.appendChild(roleSpan);
 
     const contentDiv = document.createElement("div");
@@ -386,8 +386,6 @@ async function sendMessage() {
             let toolCalls = [];
 
             if (currentSettings.streaming) {
-                assistantMessageDiv = createAssistantMessageDiv();
-
                 const response = await fetch("/api/chat", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -428,10 +426,21 @@ async function sendMessage() {
 
                             try {
                                 const parsed = JSON.parse(data);
+                                
+                                if (parsed.info) {
+                                    addMessage(parsed.info, "system");
+                                    // info が来たということはリトライ中なので、次のテキストのために div をリセット
+                                    assistantMessageDiv = null;
+                                    continue;
+                                }
+
                                 const delta = parsed.choices?.[0]?.delta;
 
                                 if (delta) {
                                     if (delta.content) {
+                                        if (!assistantMessageDiv) {
+                                            assistantMessageDiv = createAssistantMessageDiv();
+                                        }
                                         assistantContent += delta.content;
                                         updateAssistantMessage(assistantMessageDiv, assistantContent);
                                     }
