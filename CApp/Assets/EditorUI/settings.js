@@ -2,6 +2,10 @@
 
 const SETTINGS_KEY = "chatSettings";
 
+// Ollama の状態
+let ollamaAvailable = false;
+let ollamaModels = [];
+
 // エンドポイント定義
 const endpoints = {
     openai: {
@@ -46,6 +50,14 @@ const endpoints = {
         anthropic: "",
         gemini: ""
     }
+};
+
+// 各 API 種別に対応するエンドポイントプリセット
+const compatibleEndpoints = {
+    chat_completions: ["openai", "azure_openai", "grok", "ollama", "custom"],
+    responses: ["openai", "custom"],
+    anthropic: ["anthropic", "custom"],
+    gemini: ["gemini", "custom"]
 };
 
 // API 種別の説明
@@ -165,7 +177,10 @@ const closeButton = document.getElementById("closeButton");
 function updateEndpoint() {
     const preset = endpointPresetSelect.value;
     const apiType = apiTypeSelect.value;
-    
+
+    // 選択可能なエンドポイントを更新
+    updateEndpointOptions(apiType);
+
     if (preset === "custom") {
         apiEndpointInput.disabled = false;
         apiEndpointInput.placeholder = "https://example.com/api";
@@ -180,27 +195,71 @@ function updateEndpoint() {
             apiEndpointInput.placeholder = "この API 種別はサポートされていません";
         }
     }
-    
+
     // Azure OpenAI の表示切り替え
     azureOpenAiGroup.style.display = (preset === "azure_openai") ? "block" : "none";
-    
+
     // モデルリスト更新
     updateModelList(preset);
+}
+
+// API 種別に対応するエンドポイントオプションを更新
+function updateEndpointOptions(apiType) {
+    const currentPreset = endpointPresetSelect.value;
+    const compatible = compatibleEndpoints[apiType] || [];
+
+    console.log("updateEndpointOptions called:", { apiType, currentPreset, compatible, ollamaAvailable });
+
+    // 現在のプリセットが非対応の場合、custom に変更
+    if (!compatible.includes(currentPreset)) {
+        endpointPresetSelect.value = "custom";
+    }
+
+    // オプションの表示/非表示を切り替え
+    Array.from(endpointPresetSelect.options).forEach(option => {
+        const value = option.value;
+        
+        // Ollama は利用可能な場合のみ表示
+        if (value === "ollama" && !ollamaAvailable) {
+            option.style.display = "none";
+            option.disabled = true;
+            console.log("Ollama option hidden (not available)");
+            return;
+        }
+        
+        if (compatible.includes(value)) {
+            option.style.display = "";
+            option.disabled = false;
+        } else {
+            option.style.display = "none";
+            option.disabled = true;
+        }
+    });
+    
+    console.log("updateEndpointOptions completed");
 }
 
 // モデルリスト更新
 function updateModelList(preset) {
     const currentModel = modelSelect.value;
     modelSelect.innerHTML = "";
+
+    let modelList;
     
-    const modelList = models[preset] || models.custom;
+    // Ollama の場合は動的に取得したモデル一覧を使用
+    if (preset === "ollama" && ollamaModels.length > 0) {
+        modelList = ollamaModels;
+    } else {
+        modelList = models[preset] || models.custom;
+    }
+    
     modelList.forEach(model => {
         const option = document.createElement("option");
         option.value = model;
         option.textContent = model;
         modelSelect.appendChild(option);
     });
-    
+
     // 以前のモデルがリストにあれば選択
     if (modelList.includes(currentModel)) {
         modelSelect.value = currentModel;
@@ -215,11 +274,23 @@ function updateApiType() {
 
 // 初期値を設定
 apiTypeSelect.value = currentSettings.apiType;
-endpointPresetSelect.value = currentSettings.endpointPreset;
 apiKeyInput.value = currentSettings.apiKey;
 modelSelect.value = currentSettings.model;
 azureDeploymentInput.value = currentSettings.azureDeployment || "";
 streamingCheckbox.checked = currentSettings.streaming;
+
+// エンドポイントプリセットを API 種別に基づいて設定
+const compatible = compatibleEndpoints[currentSettings.apiType] || [];
+if (compatible.includes(currentSettings.endpointPreset)) {
+    // Ollama の場合は、後で C# から ollamaInfo が来るまで保留
+    if (currentSettings.endpointPreset === "ollama") {
+        endpointPresetSelect.value = "custom"; // 一時的に custom に設定
+    } else {
+        endpointPresetSelect.value = currentSettings.endpointPreset;
+    }
+} else {
+    endpointPresetSelect.value = "custom";
+}
 
 // エンドポイント入力欄の設定
 if (currentSettings.endpointPreset === "custom") {
@@ -231,12 +302,55 @@ if (currentSettings.endpointPreset === "custom") {
     apiEndpointInput.value = endpoint;
 }
 
+updateEndpointOptions(currentSettings.apiType);
 updateModelList(currentSettings.endpointPreset);
 updateApiType();
+
+// C# 側に Ollama 情報を要求
+window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "getOllamaInfo", "arguments": {} } }');
 
 // イベントリスナー
 apiTypeSelect.addEventListener("change", updateApiType);
 endpointPresetSelect.addEventListener("change", updateEndpoint);
+
+// C# からのメッセージを処理
+window.chrome.webview.addEventListener("message", (e) => {
+    try {
+        const data = JSON.parse(e.data);
+        console.log("Received message:", data);
+        if (data.method === "ollamaInfo") {
+            ollamaAvailable = data.isAvailable || false;
+            ollamaModels = data.models || [];
+            console.log("Ollama info updated:", ollamaAvailable, ollamaModels);
+            
+            // 以前 Ollama が選択されていた場合は復元
+            if (currentSettings.endpointPreset === "ollama" && ollamaAvailable && ollamaModels.length > 0) {
+                endpointPresetSelect.value = "ollama";
+            }
+            
+            // UI を更新
+            updateEndpointOptions(apiTypeSelect.value);
+            
+            // 現在 ollama が選択されている場合はモデルリストも更新
+            if (endpointPresetSelect.value === "ollama") {
+                updateModelList("ollama");
+            }
+        }
+    } catch (err) {
+        console.error("Message processing error:", err);
+    }
+});
+
+// デバッグ用：Ollama 利用可能フラグを手動設定
+function setOllamaAvailable(available) {
+    window.chrome.webview.postMessage(JSON.stringify({
+        method: "tools/call",
+        params: {
+            name: "setOllamaAvailable",
+            arguments: { available: available.toString() }
+        }
+    }));
+}
 
 // 保存ボタン
 saveSettings.addEventListener("click", () => {

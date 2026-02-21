@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -16,8 +17,19 @@ namespace CApp;
 public sealed partial class MainWindow : Window
 {
     OverlappedPresenter? presenter;
+    OllamaClient? _ollamaClient;
 
     public string ServerUri { get; set; } = "";
+
+    /// <summary>
+    /// Ollama が利用可能か
+    /// </summary>
+    public bool IsOllamaAvailable { get; private set; } = false;
+
+    /// <summary>
+    /// Ollama のモデル一覧
+    /// </summary>
+    public List<string> OllamaModels { get; private set; } = new();
 
     public MainWindow()
     {
@@ -29,6 +41,49 @@ public sealed partial class MainWindow : Window
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
 
         InitializePreview();
+        InitializeOllamaAsync();
+    }
+
+    /// <summary>
+    /// バックグラウンドで Ollama の状態を確認
+    /// </summary>
+    async void InitializeOllamaAsync()
+    {
+        try
+        {
+            _ollamaClient = new OllamaClient();
+            IsOllamaAvailable = await _ollamaClient.IsAvailableAsync();
+            if (IsOllamaAvailable)
+            {
+                OllamaModels = await _ollamaClient.GetModelsAsync();
+            }
+            LogInfo($"Ollama available: {IsOllamaAvailable}, Models={OllamaModels.Count}");
+
+            // 設定画面が開いている場合は Ollama 情報を通知
+            if (settingsWindow != null)
+            {
+                settingsWindow.SendOllamaInfo();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogInfo($"Ollama initialization failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// デバッグ用：Ollama 利用可能フラグを手動設定
+    /// </summary>
+    public void SetOllamaAvailable(bool available)
+    {
+        IsOllamaAvailable = available;
+        LogInfo($"Ollama available set manually: {available}");
+        
+        // 設定画面に通知
+        if (settingsWindow != null)
+        {
+            settingsWindow.SendOllamaInfo();
+        }
     }
 
     async void InitializePreview()
@@ -79,6 +134,12 @@ public sealed partial class MainWindow : Window
                                 OpenSettingsWindow();
                             else
                                 DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () => OpenSettingsWindow());
+                        }
+                        else if (tp.Name == "setOllamaAvailable")
+                        {
+                            // デバッグ用：Ollama 利用可能フラグを手動設定
+                            string? available = tp.GetArgumentValue("available");
+                            SetOllamaAvailable(available == "true");
                         }
                     }
                 }

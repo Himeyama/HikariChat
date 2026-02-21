@@ -24,6 +24,12 @@ public sealed partial class SettingsWindow : Window
 
         this.mainWindow = mainWindow;
 
+        // 親ウィンドウが閉じられたら設定ウィンドウも閉じる
+        if (this.mainWindow != null)
+        {
+            this.mainWindow.Closed += MainWindow_Closed;
+        }
+
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
 
@@ -41,6 +47,16 @@ public sealed partial class SettingsWindow : Window
         appWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
 
         InitializeSettingsWebView();
+    }
+
+    void MainWindow_Closed(object? sender, Microsoft.UI.Xaml.WindowEventArgs e)
+    {
+        // 親ウィンドウが閉じられたら設定ウィンドウも閉じる
+        if (mainWindow != null)
+        {
+            mainWindow.Closed -= MainWindow_Closed;
+        }
+        Close();
     }
 
     double GetDpiScale()
@@ -65,9 +81,21 @@ public sealed partial class SettingsWindow : Window
         if (settingsWebView.CoreWebView2 != null)
         {
             settingsWebView.CoreWebView2.WebMessageReceived += SettingsWebView_WebMessageReceived;
+            settingsWebView.CoreWebView2.NavigationCompleted += SettingsWebView_NavigationCompleted;
 
             if (SettingsUri != "")
                 settingsWebView.Source = new Uri(SettingsUri);
+        }
+    }
+
+    /// <summary>
+    /// WebView2 のナビゲーション完了時に Ollama 情報を送信
+    /// </summary>
+    void SettingsWebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (e.IsSuccess)
+        {
+            SendOllamaInfo();
         }
     }
 
@@ -96,6 +124,11 @@ public sealed partial class SettingsWindow : Window
                             // メインウィンドウに設定更新を通知
                             NotifyMainwindowSettingsUpdated();
                         }
+                        else if (tp.Name == "getOllamaInfo")
+                        {
+                            // Ollama 情報を再送信
+                            SendOllamaInfo();
+                        }
                     }
                 }
             }
@@ -103,6 +136,26 @@ public sealed partial class SettingsWindow : Window
         catch (Exception ex)
         {
             LogInfo(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Ollama 情報を JavaScript に送信
+    /// </summary>
+    public void SendOllamaInfo()
+    {
+        if (mainWindow != null)
+        {
+            LogInfo($"SendOllamaInfo: IsOllamaAvailable={mainWindow.IsOllamaAvailable}, Models={mainWindow.OllamaModels.Count}");
+
+            var ollamaInfo = new
+            {
+                method = "ollamaInfo",
+                isAvailable = mainWindow.IsOllamaAvailable,
+                models = mainWindow.OllamaModels
+            };
+            var json = JsonSerializer.Serialize(ollamaInfo);
+            SettingsWebView.CoreWebView2?.PostWebMessageAsString(json);
         }
     }
 
