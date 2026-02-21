@@ -396,3 +396,24 @@ cancelSettings.addEventListener("click", () => {
 closeButton.addEventListener("click", () => {
     window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "closeSettings", "arguments": {} } }');
 });
+
+// タブ切り替え機能
+const tabButtons = document.querySelectorAll('[role="tab"]');
+const tabPanels = document.querySelectorAll('[role="tabpanel"]');
+
+tabButtons.forEach(tab => {
+    tab.addEventListener("click", () => {
+        // すべてのタブの選択状態を解除
+        tabButtons.forEach(t => t.setAttribute("aria-selected", "false"));
+        // クリックされたタブを選択状態に
+        tab.setAttribute("aria-selected", "true");
+
+        // すべてのパネルを非表示
+        tabPanels.forEach(panel => panel.setAttribute("hidden", "true"));
+        // 対応するパネルを表示
+        const targetPanel = document.getElementById(tab.getAttribute("aria-controls"));
+        if (targetPanel) {
+            targetPanel.removeAttribute("hidden");
+        }
+    });
+});
