@@ -190,8 +190,8 @@ function updateEndpointOptions(apiType) {
     });
 }
 
-function updateModelList(preset) {
-    const currentModel = modelSelect.value;
+function updateModelList(preset, targetModel = null) {
+    const currentModel = targetModel || modelSelect.value;
     modelSelect.innerHTML = "";
 
     let modelList;
@@ -209,7 +209,7 @@ function updateModelList(preset) {
         modelSelect.appendChild(option);
     });
 
-    if (modelList.includes(currentModel)) {
+    if (currentModel && modelList.includes(currentModel)) {
         modelSelect.value = currentModel;
     }
 }
@@ -221,7 +221,6 @@ function updateApiType() {
 
 apiTypeSelect.value = currentSettings.apiType;
 apiKeyInput.value = currentSettings.apiKey;
-modelSelect.value = currentSettings.model;
 azureDeploymentInput.value = currentSettings.azureDeployment || "";
 streamingCheckbox.checked = currentSettings.streaming;
 mcpEnabledCheckbox.checked = currentSettings.mcpEnabled || false;
@@ -248,7 +247,7 @@ if (currentSettings.endpointPreset === "custom") {
 }
 
 updateEndpointOptions(currentSettings.apiType);
-updateModelList(currentSettings.endpointPreset);
+updateModelList(currentSettings.endpointPreset, currentSettings.model);
 updateApiType();
 
 window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "getOllamaInfo", "arguments": {} } }');
