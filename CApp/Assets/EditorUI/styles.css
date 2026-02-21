@@ -64,20 +64,11 @@ body.settings-window {
 }
 
 .tabs menu[role="tablist"] {
-    /* display: flex; */
-    /* gap: 2px; */
-    /* margin-bottom: 0; */
-    /* border-bottom: 2px solid #808080; */
-    /* padding-bottom: 0; */
 }
 
 .tabs menu[role="tablist"] button[role="tab"] {
-    /* border: 1px solid transparent; */
-    /* background: transparent; */
     cursor: pointer;
     font-weight: normal;
-    /* margin-bottom: -2px; */
-    /* border-bottom: none; */
 }
 
 .tabs menu[role="tablist"] button[role="tab"]:hover {
@@ -86,18 +77,10 @@ body.settings-window {
 
 .tabs menu[role="tablist"] button[role="tab"][aria-selected="true"] {
     background: #fff;
-    /* border: 1px solid #808080; */
-    /* border-bottom: none; */
     font-weight: bold;
-    /* position: relative; */
-    /* top: 2px; */
 }
 
 .tabs article[role="tabpanel"] {
-    /* border: 1px solid #808080; */
-    /* border-top: none; */
-    /* padding: 16px; */
-    /* background: #fff; */
 }
 
 .tabs article[role="tabpanel"][hidden] {
@@ -132,7 +115,6 @@ body.settings-window {
     display: flex;
     flex-direction: column;
     flex: 1;
-    /* overflow: hidden; */
 }
 
 .chat-tabs menu[role="tablist"] {
@@ -177,7 +159,6 @@ body.settings-window {
     flex: 1;
     resize: none;
     padding: 16px;
-    /* border: 1px solid #ccc; */
     font-family: inherit;
     font-size: inherit;
 }
