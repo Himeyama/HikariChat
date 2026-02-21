@@ -29,14 +29,14 @@ const toggleMaximize = () => {
     }
 }
 
-btnMin.addEventListener("click", () => minimizeCommand());
-btnMax.addEventListener("click", () => {
+btnMin.addEventListener("mousedown", () => minimizeCommand());
+btnMax.addEventListener("mousedown", () => {
     toggleMaximize();
 });
-btnRestore.addEventListener("click", () => {
+btnRestore.addEventListener("mousedown", () => {
     toggleMaximize();
 });
-btnClose.addEventListener("click", () => closeCommand());
+btnClose.addEventListener("mousedown", () => closeCommand());
 
 const settingsButton = document.getElementById("settingsButton");
 const SETTINGS_KEY = "chatSettings";

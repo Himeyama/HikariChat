@@ -346,7 +346,7 @@ cancelSettings.addEventListener("click", () => {
     window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "closeSettings", "arguments": {} } }');
 });
 
-closeButton.addEventListener("click", () => {
+closeButton.addEventListener("mousedown", () => {
     window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "closeSettings", "arguments": {} } }');
 });
 
