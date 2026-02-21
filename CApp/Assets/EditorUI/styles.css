@@ -19,6 +19,14 @@ body {
 .window-body {
     height: calc(100vh - 64px);
     margin: 16px !important;
+    overflow: hidden;
+}
+
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 }
 
 
@@ -92,18 +100,13 @@ body.settings-window {
    Chat UI Styles
    ========================================================================== */
 
-.chat-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
 .chat-header {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
     padding: 8px;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .mcp-status {
@@ -133,6 +136,7 @@ body.settings-window {
     display: flex;
     flex-direction: column;
     flex: 1;
+    overflow: hidden;
 }
 
 .chat-tabs menu[role="tablist"] {
@@ -143,8 +147,9 @@ body.settings-window {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
     padding: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .chat-tabs article[role="tabpanel"][hidden] {
@@ -156,7 +161,26 @@ body.settings-window {
     overflow-y: auto;
     padding: 16px;
     background: #fff;
+    min-height: 0;
 }
+
+/* .chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: #c0c0c0;
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #a0a0a0;
+} */
 
 .chat-messages:empty::before {
     content: "AI とのチャットを開始しましょう";
@@ -415,4 +439,8 @@ article {
     font-size: 12px;
     width: 100% !important;
     height: 152px;
+}
+
+.chat-tabs menu {
+    padding-top: 3px;
 }
