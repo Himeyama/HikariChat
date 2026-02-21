@@ -39,12 +39,6 @@ btnRestore.addEventListener("click", () => {
 });
 btnClose.addEventListener("click", () => closeCommand());
 
-// Chat functionality
-const chatMessages = document.getElementById("chatMessages");
-const chatInput = document.getElementById("chatInput");
-const sendButton = document.getElementById("sendButton");
-const resetButton = document.getElementById("resetButton");
-
 // Settings functionality
 const settingsButton = document.getElementById("settingsButton");
 
@@ -82,14 +76,10 @@ let currentSettings = loadSettings();
 function refreshSettings() {
     currentSettings = loadSettings();
     console.log('[Settings Updated]', currentSettings);
-    updateSendButtonState();
-}
-
-// 送信ボタンの状態を更新
-function updateSendButtonState() {
-    const message = chatInput.value.trim();
-    const hasApiKey = currentSettings.apiKey || currentSettings.endpointPreset === "ollama";
-    sendButton.disabled = !message || isLoading || !hasApiKey;
+    const activeTab = getActiveTab();
+    if (activeTab) {
+        updateSendButtonState(activeTab);
+    }
 }
 
 function openSettingsWindow() {
@@ -99,10 +89,153 @@ function openSettingsWindow() {
 
 settingsButton.addEventListener("click", openSettingsWindow);
 
-let conversationHistory = [];
-let isLoading = false;
+// Tab management
+let tabCounter = 1;
+let tabs = {}; // { tabId: { conversationHistory, isLoading } }
+let activeTabId = "tab-chat-1";
 
+// 最初のタブを初期化
+tabs["tab-chat-1"] = {
+    conversationHistory: [],
+    isLoading: false
+};
+
+function getActiveTab() {
+    return tabs[activeTabId];
+}
+
+function getActiveTabElements() {
+    // tabId から番号を抽出 (例: "tab-chat-12" -> "12")
+    const tabNum = activeTabId.replace('tab-chat-', '');
+    return {
+        chatMessages: document.getElementById(`chatMessages-${tabNum}`),
+        chatInput: document.getElementById(`chatInput-${tabNum}`),
+        sendButton: document.getElementById(`sendButton-${tabNum}`)
+    };
+}
+
+// タブ ID から番号を取得
+function getTabNumber(tabId) {
+    return tabId.replace('tab-chat-', '');
+}
+
+// 新しいタブを追加
+function addNewTab() {
+    tabCounter++;
+    const tabId = `tab-chat-${tabCounter}`;
+    const tabNum = tabCounter;
+
+    // タブデータを初期化
+    tabs[tabId] = {
+        conversationHistory: [],
+        isLoading: false
+    };
+
+    // タブボタンを追加
+    const tabList = document.querySelector('.chat-tabs menu[role="tablist"]');
+    const tabButton = document.createElement("button");
+    tabButton.setAttribute("role", "tab");
+    tabButton.setAttribute("aria-selected", "false");
+    tabButton.setAttribute("aria-controls", tabId);
+    tabButton.setAttribute("id", `${tabId}-btn`);
+    tabButton.textContent = `チャット ${tabNum}`;
+    tabButton.addEventListener("click", () => switchTab(tabId));
+    tabList.appendChild(tabButton);
+
+    // タブパネルを追加（他のパネルの後に追加）
+    const tabPanel = document.createElement("article");
+    tabPanel.setAttribute("role", "tabpanel");
+    tabPanel.setAttribute("id", tabId);
+    tabPanel.setAttribute("hidden", "true");
+    tabPanel.innerHTML = `
+        <div class="chat-messages" id="chatMessages-${tabNum}"></div>
+        <div class="chat-input-area">
+            <textarea id="chatInput-${tabNum}" placeholder="メッセージを入力..." rows="3"></textarea>
+            <button id="sendButton-${tabNum}" class="send-button">送信</button>
+        </div>
+    `;
+    document.querySelector('.chat-tabs').appendChild(tabPanel);
+    
+    // 新しいタブに切り替え
+    switchTab(tabId);
+    
+    // 入力イベントをバインド
+    bindInputEvents(tabNum);
+}
+
+// タブを切り替え
+function switchTab(tabId) {
+    // 現在のタブの送信ボタン状態を保存
+    const currentElems = getActiveTabElements();
+    
+    // すべてのタブの選択状態を解除
+    document.querySelectorAll('.chat-tabs menu[role="tablist"] button[role="tab"]').forEach(t => {
+        t.setAttribute("aria-selected", "false");
+    });
+    
+    // すべてのパネルを非表示
+    document.querySelectorAll('.chat-tabs article[role="tabpanel"]').forEach(panel => {
+        panel.setAttribute("hidden", "true");
+    });
+    
+    // 選択したタブをアクティブに
+    document.getElementById(`${tabId}-btn`).setAttribute("aria-selected", "true");
+    document.getElementById(tabId).removeAttribute("hidden");
+    
+    activeTabId = tabId;
+    
+    // 新しいタブの送信ボタン状態を更新
+    const newElems = getActiveTabElements();
+    updateSendButtonState();
+    newElems.chatInput.focus();
+}
+
+// 送信ボタンの状態を更新
+function updateSendButtonState() {
+    const elems = getActiveTabElements();
+    const tab = getActiveTab();
+    const message = elems.chatInput.value.trim();
+    const hasApiKey = currentSettings.apiKey || currentSettings.endpointPreset === "ollama";
+    elems.sendButton.disabled = !message || tab.isLoading || !hasApiKey;
+}
+
+// 入力イベントをバインド
+function bindInputEvents(tabNum) {
+    const chatInput = document.getElementById(`chatInput-${tabNum}`);
+    const sendButton = document.getElementById(`sendButton-${tabNum}`);
+    
+    chatInput.addEventListener("input", updateSendButtonState);
+    
+    chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    sendButton.addEventListener("click", sendMessage);
+}
+
+// チャットをリセット
+function resetChat() {
+    const tab = getActiveTab();
+    const elems = getActiveTabElements();
+    tab.conversationHistory = [];
+    elems.chatMessages.innerHTML = "";
+    updateSendButtonState();
+    elems.chatInput.focus();
+}
+
+const resetButton = document.getElementById("resetButton");
+resetButton.addEventListener("click", resetChat);
+
+// タブ追加ボタン
+const addTabButton = document.getElementById("addTabButton");
+addTabButton.addEventListener("click", addNewTab);
+
+// メッセージを追加
 function addMessage(content, role) {
+    const elems = getActiveTabElements();
     const messageDiv = document.createElement("div");
     messageDiv.className = `chat-message ${role}`;
 
@@ -123,23 +256,17 @@ function addMessage(content, role) {
 
     messageDiv.appendChild(contentDiv);
 
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    elems.chatMessages.appendChild(messageDiv);
+    elems.chatMessages.scrollTop = elems.chatMessages.scrollHeight;
 }
 
-// チャットをリセット
-function resetChat() {
-    conversationHistory = [];
-    chatMessages.innerHTML = "";
-    updateSendButtonState();
-    chatInput.focus();
-}
-
-resetButton.addEventListener("click", resetChat);
+let isLoading = false;
 
 async function sendMessage() {
-    const message = chatInput.value.trim();
-    if (!message || isLoading) return;
+    const elems = getActiveTabElements();
+    const tab = getActiveTab();
+    const message = elems.chatInput.value.trim();
+    if (!message || tab.isLoading) return;
 
     console.log('[Send Message] currentSettings:', currentSettings);
 
@@ -149,13 +276,13 @@ async function sendMessage() {
         return;
     }
 
-    isLoading = true;
-    sendButton.disabled = true;
+    tab.isLoading = true;
+    updateSendButtonState();
 
     // ユーザーメッセージを表示
     addMessage(message, "user");
-    conversationHistory.push({ role: "user", content: message });
-    chatInput.value = "";
+    tab.conversationHistory.push({ role: "user", content: message });
+    elems.chatInput.value = "";
 
     // ストリーミング用のプレースホルダーメッセージを作成
     let assistantMessageDiv = null;
@@ -165,14 +292,14 @@ async function sendMessage() {
         if (currentSettings.streaming) {
             // ストリーミング処理
             assistantMessageDiv = createAssistantMessageDiv();
-            
+
             const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    messages: conversationHistory,
+                    messages: tab.conversationHistory,
                     apiKey: currentSettings.apiKey,
                     apiEndpoint: currentSettings.apiEndpoint,
                     model: currentSettings.model,
@@ -208,7 +335,7 @@ async function sendMessage() {
                         try {
                             const parsed = JSON.parse(data);
                             let delta = "";
-                            
+
                             if (parsed.choices && parsed.choices[0]?.delta?.content) {
                                 delta = parsed.choices[0].delta.content;
                             } else if (parsed.content && Array.isArray(parsed.content)) {
@@ -230,7 +357,7 @@ async function sendMessage() {
             }
 
             // 会話履歴に追加
-            conversationHistory.push({ role: "assistant", content: assistantContent });
+            tab.conversationHistory.push({ role: "assistant", content: assistantContent });
         } else {
             // 通常処理
             const response = await fetch("/api/chat", {
@@ -239,7 +366,7 @@ async function sendMessage() {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    messages: conversationHistory,
+                    messages: tab.conversationHistory,
                     apiKey: currentSettings.apiKey,
                     apiEndpoint: currentSettings.apiEndpoint,
                     model: currentSettings.model,
@@ -269,7 +396,7 @@ async function sendMessage() {
 
             if (assistantMessage) {
                 addMessage(assistantMessage, "assistant");
-                conversationHistory.push({ role: "assistant", content: assistantMessage });
+                tab.conversationHistory.push({ role: "assistant", content: assistantMessage });
             } else {
                 throw new Error("空のレスポンスが返されました");
             }
@@ -278,14 +405,15 @@ async function sendMessage() {
         addMessage(error.message, "error");
         console.error("Chat error:", error);
     } finally {
-        isLoading = false;
+        tab.isLoading = false;
         updateSendButtonState();
-        chatInput.focus();
+        elems.chatInput.focus();
     }
 }
 
 // アシスタントメッセージ用の div を作成
 function createAssistantMessageDiv() {
+    const elems = getActiveTabElements();
     const messageDiv = document.createElement("div");
     messageDiv.className = "chat-message assistant";
 
@@ -298,8 +426,8 @@ function createAssistantMessageDiv() {
     contentDiv.className = "message-content";
     messageDiv.appendChild(contentDiv);
 
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    elems.chatMessages.appendChild(messageDiv);
+    elems.chatMessages.scrollTop = elems.chatMessages.scrollHeight;
 
     return contentDiv;
 }
@@ -307,26 +435,30 @@ function createAssistantMessageDiv() {
 // アシスタントメッセージを更新
 function updateAssistantMessage(contentDiv, content) {
     contentDiv.innerHTML = marked.parse(content);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    const elems = getActiveTabElements();
+    elems.chatMessages.scrollTop = elems.chatMessages.scrollHeight;
 }
-
-sendButton.addEventListener("click", sendMessage);
-
-chatInput.addEventListener("input", updateSendButtonState);
-
-chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-});
 
 // 初期状態を設定
 updateSendButtonState();
+
+// 最初のタブの入力イベントをバインド
+bindInputEvents(1);
 
 // 設定更新通知を受信
 window.chrome.webview.addEventListener("message", (e) => {
     if (e.data === "settingsUpdated") {
         refreshSettings();
     }
+});
+
+// タブ切り替え機能
+const tabButtons = document.querySelectorAll('[role="tab"]');
+const tabPanels = document.querySelectorAll('[role="tabpanel"]');
+
+tabButtons.forEach(tab => {
+    tab.addEventListener("click", () => {
+        const tabId = tab.getAttribute("aria-controls");
+        switchTab(tabId);
+    });
 });

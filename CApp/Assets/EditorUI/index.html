@@ -25,14 +25,26 @@
         <div class="window-body">
             <div class="chat-container">
                 <div class="chat-header">
+                    <button id="addTabButton" class="add-tab-button" title="新しいタブを追加">＋</button>
                     <button id="resetButton" class="reset-button" title="チャットをリセット">リセット</button>
                     <button id="settingsButton" class="settings-button" title="設定">設定</button>
                 </div>
-                <div class="chat-messages" id="chatMessages"></div>
-                <div class="chat-input-area">
-                    <textarea id="chatInput" placeholder="メッセージを入力..." rows="3"></textarea>
-                    <button id="sendButton" class="send-button">送信</button>
-                </div>
+
+                <!-- タブ -->
+                <section class="tabs chat-tabs">
+                    <menu role="tablist" aria-label="チャットタブ">
+                        <button role="tab" aria-selected="true" aria-controls="tab-chat-1" id="tab-chat-1-btn">チャット 1</button>
+                    </menu>
+
+                    <!-- チャットタブ -->
+                    <article role="tabpanel" id="tab-chat-1">
+                        <div class="chat-messages" id="chatMessages-1"></div>
+                        <div class="chat-input-area">
+                            <textarea id="chatInput-1" placeholder="メッセージを入力..." rows="3"></textarea>
+                            <button id="sendButton-1" class="send-button">送信</button>
+                        </div>
+                    </article>
+                </section>
             </div>
         </div>
 

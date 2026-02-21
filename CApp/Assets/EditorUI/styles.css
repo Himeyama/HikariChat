@@ -63,27 +63,21 @@ body.settings-window {
     margin-top: 8px;
 }
 
-/* Tabs */
-.tabs {
-    margin-bottom: 16px;
-}
-
 .tabs menu[role="tablist"] {
-    display: flex;
-    gap: 2px;
-    margin-bottom: 0;
-    border-bottom: 2px solid #808080;
-    padding-bottom: 0;
+    /* display: flex; */
+    /* gap: 2px; */
+    /* margin-bottom: 0; */
+    /* border-bottom: 2px solid #808080; */
+    /* padding-bottom: 0; */
 }
 
 .tabs menu[role="tablist"] button[role="tab"] {
-    padding: 8px 16px;
-    border: 1px solid transparent;
-    background: transparent;
+    /* border: 1px solid transparent; */
+    /* background: transparent; */
     cursor: pointer;
     font-weight: normal;
-    margin-bottom: -2px;
-    border-bottom: none;
+    /* margin-bottom: -2px; */
+    /* border-bottom: none; */
 }
 
 .tabs menu[role="tablist"] button[role="tab"]:hover {
@@ -92,18 +86,22 @@ body.settings-window {
 
 .tabs menu[role="tablist"] button[role="tab"][aria-selected="true"] {
     background: #fff;
-    border: 1px solid #808080;
-    border-bottom: none;
+    /* border: 1px solid #808080; */
+    /* border-bottom: none; */
     font-weight: bold;
-    position: relative;
-    top: 1px;
+    /* position: relative; */
+    /* top: 2px; */
 }
 
 .tabs article[role="tabpanel"] {
-    border: 1px solid #808080;
-    border-top: none;
-    padding: 16px;
-    background: #fff;
+    /* border: 1px solid #808080; */
+    /* border-top: none; */
+    /* padding: 16px; */
+    /* background: #fff; */
+}
+
+.tabs article[role="tabpanel"][hidden] {
+    display: none;
 }
 
 
@@ -112,18 +110,82 @@ body.settings-window {
    ========================================================================== */
 
 .chat-container {
-    display: grid;
-    grid-template-rows: auto 1fr auto;
+    display: flex;
+    flex-direction: column;
     height: 100%;
-    gap: 16px;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px;
+    align-items: center;
+}
+
+.add-tab-button {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.chat-tabs {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    /* overflow: hidden; */
+}
+
+.chat-tabs menu[role="tablist"] {
+    flex-shrink: 0;
+}
+
+.chat-tabs article[role="tabpanel"] {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+}
+
+.chat-tabs article[role="tabpanel"][hidden] {
+    display: none;
 }
 
 .chat-messages {
     flex: 1;
     overflow-y: auto;
-    border: 2px groove #f0f0f0;
     padding: 16px;
     background: #fff;
+}
+
+.chat-messages:empty::before {
+    content: "AI とのチャットを開始しましょう";
+    color: #999;
+    display: block;
+    text-align: center;
+    padding: 32px;
+}
+
+.chat-input-area {
+    display: flex;
+    gap: 16px;
+    border-top: 1px solid #e0e0e0;
+    padding: 16px;
+}
+
+.chat-input-area textarea {
+    flex: 1;
+    resize: none;
+    padding: 16px;
+    /* border: 1px solid #ccc; */
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.chat-history-container {
+    padding: 16px;
+    height: 100%;
+    overflow-y: auto;
 }
 
 .chat-message {
@@ -155,42 +217,13 @@ body.settings-window {
     margin-bottom: 8px;
 }
 
-.chat-input-area {
-    display: flex;
-    gap: 16px;
-}
-
-.chat-input-area textarea {
-    flex: 1;
-    resize: none;
-    padding: 16px;
-    border: 1px solid #ccc;
-    font-family: inherit;
-    font-size: inherit;
-}
-
-.send-button {
-    padding: 16px 24px;
-    min-width: 96px;
-}
-
-.chat-messages:empty::before {
-    content: "AI とのチャットを開始しましょう";
-    color: #999;
-    display: block;
-    text-align: center;
-    padding: 32px;
-}
-
-.chat-header {
-    display: flex;
-    justify-content: flex-end;
-    gap: 16px;
-}
-
 .settings-button,
 .reset-button {
     cursor: pointer;
+}
+
+.chat-input-area .send-button {
+    min-width: unset;
 }
 
 .send-button:disabled,
@@ -356,4 +389,13 @@ body.settings-window {
     border: none;
     border-top: 1px solid #ddd;
     margin: 24px 0;
+}
+
+[role=tabpanel] {
+    margin-bottom: 0 !important;
+}
+
+article {
+    display: grid;
+    grid-template-rows: 1fr auto;
 }
