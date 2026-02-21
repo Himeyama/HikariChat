@@ -13,7 +13,7 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         MainWindow window = new();
         window.Activate();
@@ -21,10 +21,16 @@ public partial class App : Application
         string serverUri = "http://localhost:30078/";
         window.ServerUri = serverUri;
         _server = new SimpleApiServer(serverUri);
+        
+        var settings = await ApiSettingsManager.LoadAsync();
+        await _server.InitializeSettingsAsync(settings);
+        
         _server.Start();
 
         window.Closed += MainWindow_Closed;
     }
+
+    public SimpleApiServer? Server => _server;
 
     private void MainWindow_Closed(object? sender, WindowEventArgs e)
     {

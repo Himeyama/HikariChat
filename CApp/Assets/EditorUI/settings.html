@@ -24,6 +24,7 @@
                 <menu role="tablist" aria-label="設定タブ">
                     <button role="tab" aria-selected="true" aria-controls="tab-api" id="tab-api-btn">API 設定</button>
                     <button role="tab" aria-selected="false" aria-controls="tab-advanced" id="tab-advanced-btn">詳細設定</button>
+                    <button role="tab" aria-selected="false" aria-controls="tab-mcp" id="tab-mcp-btn">MCP 設定</button>
                 </menu>
 
                 <!-- API 設定タブ -->
@@ -92,6 +93,27 @@
                             <input type="checkbox" id="streaming" />
                             <label for="streaming">ストリーミング応答を有効にする</label>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="field-row">
+                            <input type="checkbox" id="mcpEnabled" />
+                            <label for="mcpEnabled">MCP (Model Context Protocol) を有効にする</label>
+                        </div>
+                        <p class="api-type-info">有効にすると、AI がローカルツールを実行できるようになります。</p>
+                    </div>
+                </article>
+
+                <!-- MCP 設定タブ -->
+                <article role="tabpanel" hidden id="tab-mcp">
+                    <div class="form-group">
+                        <label for="mcpServersJson">MCP サーバー設定 (JSON)</label>
+                        <p class="api-type-info">Claude デスクトップ互換の形式で、mcpServers プロパティのみ記述してください。</p>
+                        <textarea id="mcpServersJson" rows="12" style="width: 100%; font-family: monospace;" placeholder='{
+  "filesystem": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\Users\\user\\Desktop"]
+  }
+}'></textarea>
                     </div>
                 </article>
             </section>

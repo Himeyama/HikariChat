@@ -115,7 +115,7 @@ body.settings-window {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding: 8px;
+    padding: 8px 0;
     align-items: center;
     flex-shrink: 0;
 }
@@ -128,6 +128,35 @@ body.settings-window {
     color: #005a9e;
     font-weight: 500;
     margin-right: auto;
+}
+
+.mcp-status-display {
+    /* font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-weight: bold; */
+    /* color: white; */
+    padding: 4px 8px;
+    /* background: #e8f4ff; */
+    /* color: #005a9e; */
+    border-radius: 4px;
+}
+
+.mcp-status-display.disabled {
+    background: #e0e0e0;
+    color: #999;
+}
+
+.mcp-status-display.ready {
+    /* background: #4caf50;
+    color: white; */
+    background: #e8f4ff;
+    color: #005a9e;
+}
+
+.mcp-status-display.not-ready {
+    background: #ff9800;
+    color: white;
 }
 
 .add-tab-button {

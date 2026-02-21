@@ -1,6 +1,20 @@
+using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace CApp;
+
+public class McpServerConfig
+{
+    [JsonPropertyName("command")]
+    public string Command { get; set; } = "";
+
+    [JsonPropertyName("args")]
+    public List<string> Args { get; set; } = new();
+
+    [JsonPropertyName("env")]
+    public Dictionary<string, string>? Env { get; set; }
+}
 
 public class ApiSettings
 {
@@ -24,4 +38,10 @@ public class ApiSettings
 
     [JsonPropertyName("streaming")]
     public bool Streaming { get; set; } = true;
+
+    [JsonPropertyName("mcpEnabled")]
+    public bool McpEnabled { get; set; } = false;
+
+    [JsonPropertyName("mcpServers")]
+    public Dictionary<string, McpServerConfig> McpServers { get; set; } = new();
 }

@@ -142,20 +142,34 @@ public sealed partial class MainWindow : Window
                             string? available = tp.GetArgumentValue("available");
                             SetOllamaAvailable(available == "true");
                         }
+                        else if (tp.Name == "getMcpInfo")
+                        {
+                            SendMcpStatus();
+                        }
                     }
                 }
             }
-
-            // UI スレッドで実行
-            // if (DispatcherQueue.HasThreadAccess)
-            //     HandleWindowCommand(cmd);
-            // else
-            //     DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () => HandleWindowCommand(cmd));
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             LogInfo(ex.Message);
-            // 不正なメッセージは無視またはログ
+        }
+    }
+
+    public void SendMcpStatus()
+    {
+        if (Application.Current is App app && app.Server != null)
+        {
+            var (enabled, activeCount, totalCount) = app.Server.GetMcpStatus();
+            var status = new
+            {
+                method = "mcpStatus",
+                enabled = enabled,
+                activeCount = activeCount,
+                totalCount = totalCount
+            };
+            var json = JsonSerializer.Serialize(status);
+            Preview.CoreWebView2?.PostWebMessageAsString(json);
         }
     }
 

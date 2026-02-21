@@ -99,7 +99,9 @@ const defaultSettings = {
     apiKey: "",
     model: "gpt-4o-mini",
     azureDeployment: "",
-    streaming: true
+    streaming: true,
+    mcpEnabled: false,
+    mcpServers: {}
 };
 
 function loadSettings() {
@@ -129,11 +131,14 @@ const modelSelect = document.getElementById("modelSelect");
 const azureOpenAiGroup = document.getElementById("azureOpenAiGroup");
 const azureDeploymentInput = document.getElementById("azureDeployment");
 const streamingCheckbox = document.getElementById("streaming");
+const mcpEnabledCheckbox = document.getElementById("mcpEnabled");
+const mcpServersJsonTextarea = document.getElementById("mcpServersJson");
 const saveSettings = document.getElementById("saveSettings");
 const cancelSettings = document.getElementById("cancelSettings");
 const closeButton = document.getElementById("closeButton");
 
 function updateEndpoint() {
+// ... (中略: updateEndpoint 以降の既存コードを維持しつつ、初期値をセット)
     const preset = endpointPresetSelect.value;
     const apiType = apiTypeSelect.value;
 
@@ -219,6 +224,8 @@ apiKeyInput.value = currentSettings.apiKey;
 modelSelect.value = currentSettings.model;
 azureDeploymentInput.value = currentSettings.azureDeployment || "";
 streamingCheckbox.checked = currentSettings.streaming;
+mcpEnabledCheckbox.checked = currentSettings.mcpEnabled || false;
+mcpServersJsonTextarea.value = JSON.stringify(currentSettings.mcpServers || {}, null, 2);
 
 const compatible = compatibleEndpoints[currentSettings.apiType] || [];
 if (compatible.includes(currentSettings.endpointPreset)) {
@@ -297,6 +304,14 @@ saveSettings.addEventListener("click", () => {
         return;
     }
 
+    let mcpServers = {};
+    try {
+        mcpServers = JSON.parse(mcpServersJsonTextarea.value || "{}");
+    } catch (e) {
+        alert("MCP サーバー設定の JSON 形式が正しくありません。");
+        return;
+    }
+
     currentSettings = {
         apiType: apiType,
         endpointPreset: preset,
@@ -304,7 +319,9 @@ saveSettings.addEventListener("click", () => {
         apiKey: apiKeyInput.value.trim(),
         model: modelSelect.value,
         azureDeployment: azureDeploymentInput.value.trim(),
-        streaming: streamingCheckbox.checked
+        streaming: streamingCheckbox.checked,
+        mcpEnabled: mcpEnabledCheckbox.checked,
+        mcpServers: mcpServers
     };
     saveSettingsToStorage(currentSettings);
 

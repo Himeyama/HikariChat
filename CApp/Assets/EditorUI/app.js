@@ -48,7 +48,9 @@ const defaultSettings = {
     apiKey: "",
     model: "gpt-4o-mini",
     azureDeployment: "",
-    streaming: true
+    streaming: true,
+    mcpEnabled: false,
+    mcpServers: {}
 };
 
 function loadSettings() {
@@ -90,14 +92,51 @@ function updateModelDisplay() {
     modelDisplay.textContent = `${providerName} / ${model}`;
 }
 
+function updateMcpStatusDisplay(status) {
+    const display = document.getElementById('mcpStatusDisplay');
+    if (!display) return;
+    
+    // 引数がない場合は単に現在の設定に基づいた表示
+    if (!status) {
+        if (!currentSettings.mcpEnabled) {
+            display.textContent = "MCP: 無効";
+            display.className = "mcp-status-display disabled";
+        } else {
+            display.textContent = "MCP: 準備中...";
+            display.className = "mcp-status-display not-ready";
+        }
+        return;
+    }
+
+    if (!status.enabled) {
+        display.textContent = "MCP: 無効";
+        display.className = "mcp-status-display disabled";
+    } else if (status.totalCount > 0 && status.activeCount === status.totalCount) {
+        display.textContent = `MCP: 準備完了 (${status.activeCount} サーバー)`;
+        display.className = "mcp-status-display ready";
+    } else if (status.totalCount === 0) {
+        display.textContent = "MCP: サーバー未登録";
+        display.className = "mcp-status-display not-ready";
+    } else {
+        display.textContent = `MCP: 未準備 (${status.activeCount}/${status.totalCount})`;
+        display.className = "mcp-status-display not-ready";
+    }
+}
+
 function refreshSettings() {
     currentSettings = loadSettings();
     console.log('[Settings Updated]', currentSettings);
     updateModelDisplay();
+    updateMcpStatusDisplay();
+    requestMcpStatus();
     const activeTab = getActiveTab();
     if (activeTab) {
         updateSendButtonState(activeTab);
     }
+}
+
+function requestMcpStatus() {
+    window.chrome.webview.postMessage('{ "method": "tools/call", "params": {"name": "getMcpInfo", "arguments": {} } }');
 }
 
 function openSettingsWindow() {
@@ -300,13 +339,28 @@ function addMessage(content, role) {
     elems.chatMessages.scrollTop = elems.chatMessages.scrollHeight;
 }
 
+async function executeMcpTool(name, args) {
+    try {
+        const response = await fetch("/api/mcp/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, arguments: args })
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            return { error: error.error || "Execution failed" };
+        }
+        return await response.json();
+    } catch (e) {
+        return { error: e.message };
+    }
+}
+
 async function sendMessage() {
     const elems = getActiveTabElements();
     const tab = getActiveTab();
     const message = elems.chatInput.value.trim();
     if (!message || tab.isLoading) return;
-
-    console.log('[Send Message] currentSettings:', currentSettings);
 
     if (!currentSettings.apiKey && currentSettings.endpointPreset !== "ollama") {
         addMessage("API キーが設定されていません。設定から入力してください。", "error");
@@ -317,115 +371,162 @@ async function sendMessage() {
     tab.isLoading = true;
     updateSendButtonState();
 
-    addMessage(message, "user");
-    tab.conversationHistory.push({ role: "user", content: message });
-    elems.chatInput.value = "";
-
-    let assistantMessageDiv = null;
-    let assistantContent = "";
+    if (message) {
+        addMessage(message, "user");
+        tab.conversationHistory.push({ role: "user", content: message });
+        elems.chatInput.value = "";
+    }
 
     try {
-        if (currentSettings.streaming) {
-            assistantMessageDiv = createAssistantMessageDiv();
+        let continueLoop = true;
+        while (continueLoop) {
+            continueLoop = false;
+            let assistantMessageDiv = null;
+            let assistantContent = "";
+            let toolCalls = [];
 
-            const response = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    messages: tab.conversationHistory,
-                    apiKey: currentSettings.apiKey,
-                    apiEndpoint: currentSettings.apiEndpoint,
-                    model: currentSettings.model,
-                    apiType: currentSettings.apiType,
-                    endpointPreset: currentSettings.endpointPreset,
-                    azureDeployment: currentSettings.azureDeployment,
-                    streaming: true
-                })
-            });
+            if (currentSettings.streaming) {
+                assistantMessageDiv = createAssistantMessageDiv();
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "API エラーが発生しました");
-            }
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        messages: tab.conversationHistory,
+                        apiKey: currentSettings.apiKey,
+                        apiEndpoint: currentSettings.apiEndpoint,
+                        model: currentSettings.model,
+                        apiType: currentSettings.apiType,
+                        endpointPreset: currentSettings.endpointPreset,
+                        azureDeployment: currentSettings.azureDeployment,
+                        streaming: true,
+                        mcpEnabled: currentSettings.mcpEnabled
+                    })
+                });
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || "API エラーが発生しました");
+                }
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                for (const line of lines) {
-                    if (line.startsWith("data: ")) {
-                        const data = line.substring(6);
-                        if (data === "[DONE]") continue;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
 
-                        try {
-                            const parsed = JSON.parse(data);
-                            let delta = "";
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const data = line.substring(6);
+                            if (data === "[DONE]") continue;
 
-                            if (parsed.choices && parsed.choices[0]?.delta?.content) {
-                                delta = parsed.choices[0].delta.content;
-                            } else if (parsed.content && Array.isArray(parsed.content)) {
-                                if (parsed.content[0]?.text) {
-                                    delta = parsed.content[0].text;
+                            try {
+                                const parsed = JSON.parse(data);
+                                const delta = parsed.choices?.[0]?.delta;
+
+                                if (delta) {
+                                    if (delta.content) {
+                                        assistantContent += delta.content;
+                                        updateAssistantMessage(assistantMessageDiv, assistantContent);
+                                    }
+                                    
+                                    if (delta.tool_calls) {
+                                        for (const tc of delta.tool_calls) {
+                                            if (!toolCalls[tc.index]) {
+                                                toolCalls[tc.index] = { id: tc.id, name: "", arguments: "" };
+                                            }
+                                            if (tc.function?.name) toolCalls[tc.index].name += tc.function.name;
+                                            if (tc.function?.arguments) toolCalls[tc.index].arguments += tc.function.arguments;
+                                        }
+                                    }
                                 }
-                            }
-
-                            if (delta) {
-                                assistantContent += delta;
-                                updateAssistantMessage(assistantMessageDiv, assistantContent);
-                            }
-                        } catch (e) {
-                            // JSON パースエラーは無視
+                            } catch (e) { }
                         }
+                    }
+                }
+            } else {
+                // 非ストリーミング
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        messages: tab.conversationHistory,
+                        apiKey: currentSettings.apiKey,
+                        apiEndpoint: currentSettings.apiEndpoint,
+                        model: currentSettings.model,
+                        apiType: currentSettings.apiType,
+                        endpointPreset: currentSettings.endpointPreset,
+                        azureDeployment: currentSettings.azureDeployment,
+                        streaming: false,
+                        mcpEnabled: currentSettings.mcpEnabled
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || "API エラーが発生しました");
+                }
+
+                const data = await response.json();
+                const message = data.choices?.[0]?.message;
+                if (message) {
+                    assistantContent = message.content || "";
+                    if (message.tool_calls) {
+                        toolCalls = message.tool_calls.map(tc => ({
+                            id: tc.id,
+                            name: tc.function.name,
+                            arguments: tc.function.arguments
+                        }));
+                    }
+                    if (assistantContent) {
+                        addMessage(assistantContent, "assistant");
                     }
                 }
             }
 
-            tab.conversationHistory.push({ role: "assistant", content: assistantContent });
-        } else {
-            const response = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    messages: tab.conversationHistory,
-                    apiKey: currentSettings.apiKey,
-                    apiEndpoint: currentSettings.apiEndpoint,
-                    model: currentSettings.model,
-                    apiType: currentSettings.apiType,
-                    endpointPreset: currentSettings.endpointPreset,
-                    azureDeployment: currentSettings.azureDeployment,
-                    streaming: false
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "API エラーが発生しました");
+            // メッセージ履歴に追加
+            const assistantMsg = { role: "assistant", content: assistantContent };
+            if (toolCalls.length > 0) {
+                assistantMsg.tool_calls = toolCalls.map(tc => ({
+                    id: tc.id,
+                    type: "function",
+                    function: { name: tc.name, arguments: tc.arguments }
+                }));
             }
+            tab.conversationHistory.push(assistantMsg);
 
-            const data = await response.json();
-            let assistantMessage = "";
-
-            if (currentSettings.apiType === "gemini") {
-                assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            } else if (currentSettings.apiType === "anthropic") {
-                assistantMessage = data.content?.[0]?.text || "";
-            } else {
-                assistantMessage = data.choices?.[0]?.message?.content || "";
-            }
-
-            if (assistantMessage) {
-                addMessage(assistantMessage, "assistant");
-                tab.conversationHistory.push({ role: "assistant", content: assistantMessage });
-            } else {
-                throw new Error("空のレスポンスが返されました");
+            // ツール実行
+            if (toolCalls.length > 0) {
+                if (!assistantMessageDiv) {
+                    assistantMessageDiv = createAssistantMessageDiv();
+                }
+                
+                for (const tc of toolCalls.filter(x => x)) {
+                    updateAssistantMessage(assistantMessageDiv, `${assistantContent}\n\n> ツール実行中: \`${tc.name}\`...`);
+                    
+                    let args = {};
+                    try { args = JSON.parse(tc.arguments); } catch (e) { }
+                    
+                    const result = await executeMcpTool(tc.name, args);
+                    const resultString = JSON.stringify(result);
+                    
+                    tab.conversationHistory.push({
+                        role: "tool",
+                        tool_call_id: tc.id,
+                        name: tc.name,
+                        content: resultString
+                    });
+                    
+                    assistantContent += `\n\n> ツール \`${tc.name}\` の実行が完了しました。`;
+                    updateAssistantMessage(assistantMessageDiv, assistantContent);
+                }
+                continueLoop = true; // 再度 AI を呼び出す
             }
         }
     } catch (error) {
@@ -467,6 +568,7 @@ function updateAssistantMessage(contentDiv, content) {
 updateSendButtonState();
 bindInputEvents(1);
 updateModelDisplay();
+updateMcpStatusDisplay();
 
 // 最初のタブのクリックイベントを設定
 const firstTabBtn = document.getElementById('tab-chat-1-btn');
@@ -490,5 +592,15 @@ if (firstTabBtn) {
 window.chrome.webview.addEventListener("message", (e) => {
     if (e.data === "settingsUpdated") {
         refreshSettings();
+    } else {
+        try {
+            const data = JSON.parse(e.data);
+            if (data.method === "mcpStatus") {
+                updateMcpStatusDisplay(data);
+            }
+        } catch(e) {}
     }
 });
+
+// 初期ロード時にステータスを要求
+requestMcpStatus();

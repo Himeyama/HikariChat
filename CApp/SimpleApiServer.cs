@@ -21,10 +21,24 @@ public class SimpleApiServer : IDisposable
     };
     static readonly HttpClient _httpClient = new();
 
+    private readonly McpManager _mcpManager = new();
+    private ApiSettings _currentSettings = new();
+
     public SimpleApiServer(string prefix)
     {
         _listener = new HttpListener();
         _listener.Prefixes.Add(prefix);
+    }
+
+    public async Task InitializeSettingsAsync(ApiSettings settings)
+    {
+        _currentSettings = settings;
+        await _mcpManager.UpdateSettingsAsync(settings);
+    }
+
+    public (bool enabled, int activeCount, int totalCount) GetMcpStatus()
+    {
+        return _mcpManager.GetStatus();
     }
 
     public void Start()
@@ -108,6 +122,18 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
+            if (path.Equals("/api/mcp/execute", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "POST")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleMcpExecuteAsync(req, res);
+                return;
+            }
+
             if (req.HttpMethod != "GET")
             {
                 res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
@@ -174,6 +200,42 @@ public class SimpleApiServer : IDisposable
         }
     }
 
+    async Task HandleMcpExecuteAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        try
+        {
+            string requestBody;
+            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
+
+            using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
+            JsonElement root = jsonDoc.RootElement;
+
+            if (!root.TryGetProperty("name", out JsonElement nameElem))
+            {
+                res.StatusCode = (int)HttpStatusCode.BadRequest;
+                await WriteJsonAsync(res, new { error = "tool name is required" });
+                return;
+            }
+
+            string toolName = nameElem.GetString() ?? "";
+            JsonElement arguments = root.TryGetProperty("arguments", out JsonElement argsElem) ? argsElem : default;
+
+            var result = await _mcpManager.CallToolAsync(toolName, arguments);
+            
+            res.StatusCode = (int)HttpStatusCode.OK;
+            res.ContentType = "application/json; charset=utf-8";
+            await WriteJsonAsync(res, result);
+        }
+        catch (Exception ex)
+        {
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "MCP execution error", detail = ex.Message });
+        }
+    }
+
     async Task WriteJsonAsync(HttpListenerResponse res, object obj)
     {
         string json = JsonSerializer.Serialize(obj, _jsonOptions);
@@ -223,8 +285,11 @@ public class SimpleApiServer : IDisposable
             bool streaming = messagesRoot.TryGetProperty("streaming", out JsonElement streamingElem)
                 ? streamingElem.GetBoolean()
                 : false;
+            bool mcpEnabled = messagesRoot.TryGetProperty("mcpEnabled", out JsonElement mcpEnabledElem)
+                ? mcpEnabledElem.GetBoolean()
+                : false;
 
-            Console.WriteLine($"[API] Request: apiType={apiType}, endpointPreset={endpointPreset}, apiEndpoint={apiEndpoint}, model={model}, streaming={streaming}");
+            Console.WriteLine($"[API] Request: apiType={apiType}, endpointPreset={endpointPreset}, apiEndpoint={apiEndpoint}, model={model}, streaming={streaming}, mcpEnabled={mcpEnabled}");
 
             if (string.IsNullOrEmpty(apiKey) && endpointPreset != "ollama")
             {
@@ -233,9 +298,17 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
+            // MCP ツールを取得
+            List<object>? mcpTools = null;
+            if (mcpEnabled)
+            {
+                mcpTools = await _mcpManager.GetOpenAiToolsAsync();
+                Console.WriteLine($"[MCP] Injected {mcpTools.Count} tools");
+            }
+
             if (streaming)
             {
-                await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment);
+                await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools);
                 return;
             }
 
@@ -244,7 +317,7 @@ public class SimpleApiServer : IDisposable
                 "responses" => await HandleResponsesApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment),
                 "anthropic" => await HandleAnthropicApiAsync(apiEndpoint, apiKey, model, messagesElement),
                 "gemini" => await HandleGeminiApiAsync(apiEndpoint, apiKey, model, messagesElement),
-                _ => await HandleChatCompletionsApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment)
+                _ => await HandleChatCompletionsApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools)
             };
 
             res.StatusCode = (int)HttpStatusCode.OK;
@@ -268,7 +341,7 @@ public class SimpleApiServer : IDisposable
         }
     }
 
-    async Task HandleStreamingAsync(HttpListenerResponse res, string apiType, string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment)
+    async Task HandleStreamingAsync(HttpListenerResponse res, string apiType, string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment, List<object>? tools = null)
     {
         res.StatusCode = (int)HttpStatusCode.OK;
         res.ContentType = "text/event-stream; charset=utf-8";
@@ -316,7 +389,8 @@ public class SimpleApiServer : IDisposable
                     max_tokens = 4096,
                     messages = anthropicMessages,
                     system = systemMessage,
-                    stream = true
+                    stream = true,
+                    tools = (tools != null && tools.Count > 0) ? tools : null
                 };
             }
             else
@@ -325,7 +399,8 @@ public class SimpleApiServer : IDisposable
                 {
                     model,
                     messages,
-                    stream = true
+                    stream = true,
+                    tools = (tools != null && tools.Count > 0) ? tools : null
                 };
             }
 
@@ -383,7 +458,7 @@ public class SimpleApiServer : IDisposable
         }
     }
 
-    async Task<string> HandleChatCompletionsApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment)
+    async Task<string> HandleChatCompletionsApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment, List<object>? tools = null)
     {
         string endpoint = apiEndpoint;
         if (endpointPreset == "azure_openai" && azureDeployment != "")
@@ -394,7 +469,8 @@ public class SimpleApiServer : IDisposable
         var requestPayload = new
         {
             model,
-            messages = JsonSerializer.Deserialize<object[]>(messagesElement)
+            messages = JsonSerializer.Deserialize<object[]>(messagesElement),
+            tools = (tools != null && tools.Count > 0) ? tools : null
         };
 
         string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
