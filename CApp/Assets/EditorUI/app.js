@@ -139,14 +139,23 @@ function addNewTab() {
     };
 
     const tabList = document.querySelector('.chat-tabs menu[role="tablist"]');
+    const tabLi = document.createElement("li");
     const tabButton = document.createElement("button");
     tabButton.setAttribute("role", "tab");
     tabButton.setAttribute("aria-selected", "false");
     tabButton.setAttribute("aria-controls", tabId);
     tabButton.setAttribute("id", `${tabId}-btn`);
-    tabButton.textContent = `チャット ${tabNum}`;
-    tabButton.addEventListener("click", () => switchTab(tabId));
-    tabList.appendChild(tabButton);
+    tabButton.innerHTML = `
+        <span class="tab-title">チャット ${tabNum}</span>
+        <span class="tab-close" aria-label="タブを閉じる" data-tab="${tabId}">×</span>
+    `;
+    tabButton.addEventListener("click", (e) => {
+        if (!e.target.classList.contains('tab-close')) {
+            switchTab(tabId);
+        }
+    });
+    tabLi.appendChild(tabButton);
+    tabList.appendChild(tabLi);
 
     const tabPanel = document.createElement("article");
     tabPanel.setAttribute("role", "tabpanel");
@@ -183,6 +192,49 @@ function switchTab(tabId) {
     updateSendButtonState();
     elems.chatInput.focus();
 }
+
+function closeTab(tabId) {
+    // 最後のタブは閉じられない
+    const tabKeys = Object.keys(tabs);
+    if (tabKeys.length <= 1) {
+        return;
+    }
+
+    // 閉じるタブのインデックスを取得
+    const tabIndex = tabKeys.indexOf(tabId);
+    
+    // 閉じるタブがアクティブな場合、隣のタブに切り替え
+    if (activeTabId === tabId) {
+        const newActiveIndex = tabIndex > 0 ? tabIndex - 1 : tabIndex + 1;
+        const newActiveTabId = tabKeys[newActiveIndex];
+        switchTab(newActiveTabId);
+    }
+
+    // タブデータを削除
+    delete tabs[tabId];
+
+    // タブボタンを削除
+    const tabBtn = document.getElementById(`${tabId}-btn`);
+    if (tabBtn) {
+        tabBtn.parentElement.remove();
+    }
+
+    // タブパネルを削除
+    const tabPanel = document.getElementById(tabId);
+    if (tabPanel) {
+        tabPanel.remove();
+    }
+}
+
+// タブ閉じるボタンのイベントリスナー
+document.querySelector('.chat-tabs menu[role="tablist"]').addEventListener('click', (e) => {
+    if (e.target.classList.contains('tab-close')) {
+        const tabId = e.target.getAttribute('data-tab');
+        if (tabId) {
+            closeTab(tabId);
+        }
+    }
+});
 
 function updateSendButtonState() {
     const elems = getActiveTabElements();
@@ -415,6 +467,25 @@ function updateAssistantMessage(contentDiv, content) {
 updateSendButtonState();
 bindInputEvents(1);
 updateModelDisplay();
+
+// 最初のタブのクリックイベントを設定
+const firstTabBtn = document.getElementById('tab-chat-1-btn');
+if (firstTabBtn) {
+    firstTabBtn.addEventListener("click", (e) => {
+        if (!e.target.classList.contains('tab-close')) {
+            switchTab('tab-chat-1');
+        }
+    });
+    
+    // 閉じる要素のイベント
+    const firstCloseSpan = firstTabBtn.querySelector('.tab-close');
+    if (firstCloseSpan) {
+        firstCloseSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab('tab-chat-1');
+        });
+    }
+}
 
 window.chrome.webview.addEventListener("message", (e) => {
     if (e.data === "settingsUpdated") {

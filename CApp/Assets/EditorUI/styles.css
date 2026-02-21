@@ -71,24 +71,35 @@ body.settings-window {
     margin-top: 8px;
 }
 
-.tabs menu[role="tablist"] {
-}
-
-.tabs menu[role="tablist"] button[role="tab"] {
+.tabs menu[role="tablist"] li button[role="tab"] {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
     cursor: pointer;
     font-weight: normal;
 }
 
-.tabs menu[role="tablist"] button[role="tab"]:hover {
-    background: #f0f0f0;
-}
-
-.tabs menu[role="tablist"] button[role="tab"][aria-selected="true"] {
-    background: #fff;
+.tabs menu[role="tablist"] li button[role="tab"][aria-selected="true"] {
     font-weight: bold;
 }
 
-.tabs article[role="tabpanel"] {
+.tabs menu[role="tablist"] li button[role="tab"] .tab-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.tabs menu[role="tablist"] li button[role="tab"] .tab-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.chat-tabs button {
+    gap: 16px;
 }
 
 .tabs article[role="tabpanel"][hidden] {
