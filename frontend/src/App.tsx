@@ -296,7 +296,6 @@ function App() {
   ): Promise<void> => {
     // Base case: max iterations reached
     if (iterationCount >= maxIterations) {
-      console.log("Max iterations reached");
       return;
     }
 
@@ -319,7 +318,6 @@ function App() {
 
     // If no new tools were executed, stop
     if (toolResults.length === 0) {
-      console.log("No new tools executed, stopping");
       return;
     }
 
@@ -365,7 +363,6 @@ function App() {
       await processChatRecursive(localMessages, executedToolCallIds, 0, MAX_ITERATIONS);
     } catch (error: any) {
       addMessage(error.message, "error");
-      console.error("Chat error:", error);
     } finally {
       setTabs(prevTabs => ({
         ...prevTabs,

@@ -127,13 +127,14 @@ async function sendToOpenAI(
     return result;
   } else {
     // 非ストリーミング処理
+    console.log('[sendToOpenAI] calling non-streaming API...');
     const response = await openai.chat.completions.create({
       model: options.model,
       messages: toOpenAIMessages(messages)
     });
 
     const message = response.choices[0]?.message;
-    return {
+    const result = {
       content: message?.content || "",
       toolCalls: message?.tool_calls
         ?.filter(tc => tc.type === 'function')
@@ -143,6 +144,10 @@ async function sendToOpenAI(
           arguments: tc.function.arguments
         })) || []
     };
+
+    callbacks?.onComplete?.(result);
+
+    return result;
   }
 }
 
@@ -227,7 +232,7 @@ async function sendToAzureOpenAI(
     });
 
     const message = response.choices[0]?.message;
-    return {
+    const result = {
       content: message?.content || "",
       toolCalls: message?.tool_calls
         ?.filter(tc => tc.type === 'function')
@@ -237,6 +242,9 @@ async function sendToAzureOpenAI(
           arguments: tc.function.arguments
         })) || []
     };
+    
+    callbacks?.onComplete?.(result);
+    return result;
   }
 }
 
@@ -284,11 +292,14 @@ async function sendToGemini(
     // 非ストリーミング処理
     const result = await chat.sendMessage(systemInstruction || '');
     const response = await result.response;
-    
-    return {
+
+    const responseResult = {
       content: response.text(),
       toolCalls: []
     };
+    
+    callbacks?.onComplete?.(responseResult);
+    return responseResult;
   }
 }
 
@@ -372,10 +383,13 @@ async function sendToAnthropic(
         arguments: JSON.stringify(tc.input)
       }));
 
-    return {
+    const result = {
       content: textContent?.text || "",
       toolCalls
     };
+    
+    callbacks?.onComplete?.(result);
+    return result;
   }
 }
 
