@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,7 +25,7 @@ public class SimpleApiServer : IDisposable
     };
     static readonly HttpClient _httpClient = new();
 
-    private readonly McpManager _mcpManager = new();
+    private readonly McpManager? _mcpManager;
     private ApiSettings _currentSettings = new();
 
     // UI から注入されるデリゲート
@@ -67,7 +67,7 @@ public class SimpleApiServer : IDisposable
     }
 
 
-    public SimpleApiServer(string prefix)
+    public SimpleApiServer(string prefix, McpManager? mcpManager = null)
     {
         _listener = new HttpListener();
         _listener.Prefixes.Add(prefix);

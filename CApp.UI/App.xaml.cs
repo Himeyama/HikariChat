@@ -23,11 +23,10 @@ public partial class App : Application
         var settings = await Server.ApiSettingsManager.LoadAsync();
         await _mcpManager.UpdateSettingsAsync(settings);
         
-        // API サーバーを起動
-        _apiServer = new Server.SimpleApiServer("http://localhost:51234/");
+        // API サーバーを起動（McpManager を共有）
+        _apiServer = new Server.SimpleApiServer("http://localhost:51234/", _mcpManager);
         _apiServer.ExecuteScriptAsync = (script) => _mainWindow?.ExecuteScriptAsync(script);
         _apiServer.GetChatHistoryAsync = () => _mainWindow?.GetChatHistoryAsync()!;
-        await _apiServer.InitializeSettingsAsync(settings);
         _apiServer.Start();
         
         _mainWindow = new MainWindow();
@@ -46,12 +45,6 @@ public partial class App : Application
         if (_mcpManager != null)
         {
             await _mcpManager.UpdateSettingsAsync(settings);
-        }
-        
-        // API サーバーにも設定を更新
-        if (_apiServer != null)
-        {
-            await _apiServer.InitializeSettingsAsync(settings);
         }
     }
 }
