@@ -8,6 +8,14 @@ export interface ChatMessage {
   content: string;
   name?: string;
   tool_call_id?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
 }
 
 export interface ToolCall {
@@ -415,26 +423,63 @@ export async function sendChatMessage(
 }
 
 /**
- * Execute MCP tool
+ * Execute MCP tool via webview
  */
-export async function executeMcpTool(name: string, args: any): Promise<any> {
-  try {
-    const response = await fetch("/api/mcp/execute", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, arguments: args })
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      return { error: error.error || "Execution failed" };
+export async function executeMcpTool(
+  name: string,
+  args: any,
+  onToolCall?: (toolCall: { name: string; args: any }) => void
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    // Notify tool call start
+    if (onToolCall) {
+      onToolCall({ name, args });
     }
-    
-    return await response.json();
-  } catch (e: any) {
-    return { error: e.message };
-  }
+
+    // Call MCP tool via webview
+    const toolCallId = `tool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const message = JSON.stringify({
+      method: "tools/call",
+      params: {
+        name,
+        arguments: args,
+        toolCallId
+      }
+    });
+
+    console.log('[executeMcpTool] calling:', name, args);
+    webview.postMessage(message);
+
+    // Wait for response via custom event
+    const timeout = setTimeout(() => {
+      webview.removeEventListener("message", handleResponse);
+      reject(new Error(`Tool execution timeout: ${name}`));
+    }, 60000); // 60 second timeout
+
+    const handleResponse = (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        // Check if this is the response for our tool call
+        if (data.toolCallId === toolCallId || (data.method === "toolResult" && data.name === name)) {
+          clearTimeout(timeout);
+          webview.removeEventListener("message", handleResponse);
+          resolve(data.result || data);
+        }
+      } catch (e) {
+        // Ignore parse errors, wait for valid response
+      }
+    };
+
+    webview.addEventListener("message", handleResponse);
+  });
 }
+
+// Define webview for browser environment
+const webview = (typeof window !== 'undefined' && (window as any).chrome?.webview) || {
+  postMessage: (msg: string) => console.log('[webview mock] postMessage:', msg),
+  addEventListener: (_event: string, _cb: any) => {},
+  removeEventListener: (_event: string, _cb: any) => {}
+};
 
 /**
  * Process tool calls and return updated messages
@@ -477,11 +522,27 @@ export async function processToolCalls(
  */
 export function buildMessagesForNextRequest(
   currentMessages: ChatMessage[],
-  _assistantContent: string,
-  _toolCalls: ToolCall[],
+  assistantContent: string,
+  toolCalls: ToolCall[],
   toolResults: Array<{ name: string; content: string; toolCallId: string }>
 ): ChatMessage[] {
   const newMessages: ChatMessage[] = [...currentMessages];
+
+  // Add assistant message with tool calls
+  if (toolCalls.length > 0) {
+    newMessages.push({
+      role: "assistant" as const,
+      content: assistantContent,
+      tool_calls: toolCalls.map(tc => ({
+        id: tc.id,
+        type: "function" as const,
+        function: {
+          name: tc.name,
+          arguments: tc.arguments
+        }
+      }))
+    });
+  }
 
   // Add tool results
   for (const result of toolResults) {

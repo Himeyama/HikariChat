@@ -3,7 +3,7 @@ import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
 import hljs from 'highlight.js';
-import { sendChatMessage, processToolCalls, buildMessagesForNextRequest, type ToolCall } from './chatUtils';
+import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, type ToolCall } from './chatUtils';
 
 // Create a new Marked instance and configure it
 const customMarked = new Marked();
@@ -266,19 +266,34 @@ function App() {
   ): Promise<Array<{ name: string; content: string; toolCallId: string }>> => {
     const toolResults: Array<{ name: string; content: string; toolCallId: string }> = [];
 
-    await processToolCalls(
-      toolCalls,
-      executedToolCallIds,
-      (name, _args, toolResult) => {
-        const resultString = JSON.stringify(toolResult);
-        addMessage(resultString, "tool", name);
-        toolResults.push({
-          name,
-          content: resultString,
-          toolCallId: executedToolCallIds.size.toString()
-        });
+    for (const tc of toolCalls) {
+      // Skip already executed tool calls
+      if (executedToolCallIds.has(tc.id)) {
+        continue;
       }
-    );
+
+      let args = {};
+      try {
+        args = JSON.parse(tc.arguments);
+      } catch (e) {
+        console.error("Error parsing tool arguments:", e);
+      }
+
+      // Execute the tool
+      const result = await executeMcpTool(tc.name, args);
+      const resultString = JSON.stringify(result);
+      
+      // Add tool result message to UI
+      addMessage(resultString, "tool", tc.name, tc.id);
+      
+      toolResults.push({
+        name: tc.name,
+        content: resultString,
+        toolCallId: tc.id
+      });
+
+      executedToolCallIds.add(tc.id);
+    }
 
     return toolResults;
   };
@@ -314,7 +329,7 @@ function App() {
       return;
     }
 
-    // Execute tools
+    // Execute tools and get results
     const toolResults = await executeTools(result.toolCalls, executedToolCallIds);
 
     // If no new tools were executed, stop
