@@ -41,7 +41,7 @@ public sealed partial class SettingsWindow : Window
 
         double scale = GetDpiScale();
         int width = (int)(920 * scale);
-        int height = (int)(1000 * scale);
+        int height = (int)(1080 * scale);
         appWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
 
         InitializeSettingsWebView();

@@ -9,7 +9,7 @@
     mc:Ignorable="d">
     <Grid x:Name="Window">
         <Grid RowDefinitions="Auto">
-            <Grid Name="TitleBar" Height="28" />
+            <Grid Name="TitleBar" Height="40" />
         </Grid>
         <Grid>
             <WebView2 Name="Preview" x:FieldModifier="public" />

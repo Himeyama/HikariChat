@@ -152,39 +152,25 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
-            if (path.Equals("/styles.css", StringComparison.OrdinalIgnoreCase))
+            // Removed hardcoded paths for old static assets
+
+            // Generic static file serving
+            string requestedFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", path.TrimStart('/'));
+
+            // Prevent directory traversal attacks
+            if (!requestedFilePath.StartsWith(Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI")), StringComparison.OrdinalIgnoreCase))
             {
-                string home = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", "styles.css");
-                res.ContentType = "text/css; charset=utf-8";
-                res.StatusCode = (int)HttpStatusCode.OK;
-                await WriteFileAsync(res, home);
+                res.StatusCode = (int)HttpStatusCode.Forbidden;
+                await WriteJsonAsync(res, new { error = "Forbidden" });
                 return;
             }
 
-            if (path.Equals("/app.js", StringComparison.OrdinalIgnoreCase))
+            if (File.Exists(requestedFilePath))
             {
-                string home = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", "app.js");
-                res.ContentType = "application/javascript; charset=utf-8";
+                string mimeType = GetMimeType(requestedFilePath);
+                res.ContentType = mimeType;
                 res.StatusCode = (int)HttpStatusCode.OK;
-                await WriteFileAsync(res, home);
-                return;
-            }
-
-            if (path.Equals("/settings.html", StringComparison.OrdinalIgnoreCase))
-            {
-                string home = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", "settings.html");
-                res.ContentType = "text/html; charset=utf-8";
-                res.StatusCode = (int)HttpStatusCode.OK;
-                await WriteFileAsync(res, home);
-                return;
-            }
-
-            if (path.Equals("/settings.js", StringComparison.OrdinalIgnoreCase))
-            {
-                string home = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", "settings.js");
-                res.ContentType = "application/javascript; charset=utf-8";
-                res.StatusCode = (int)HttpStatusCode.OK;
-                await WriteFileAsync(res, home);
+                await WriteFileAsync(res, requestedFilePath);
                 return;
             }
 
@@ -244,6 +230,29 @@ public class SimpleApiServer : IDisposable
         byte[] bytes = Encoding.UTF8.GetBytes(json);
         res.ContentLength64 = bytes.Length;
         await res.OutputStream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
+    }
+
+    private string GetMimeType(string filePath)
+    {
+        string extension = Path.GetExtension(filePath).ToLowerInvariant();
+        return extension switch
+        {
+            ".html" => "text/html; charset=utf-8",
+            ".css" => "text/css; charset=utf-8",
+            ".js" => "application/javascript; charset=utf-8",
+            ".json" => "application/json; charset=utf-8",
+            ".png" => "image/png",
+            ".jpg" => "image/jpeg",
+            ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".svg" => "image/svg+xml",
+            ".ico" => "image/x-icon",
+            ".woff" => "font/woff",
+            ".woff2" => "font/woff2",
+            ".ttf" => "font/ttf",
+            ".otf" => "font/otf",
+            _ => "application/octet-stream",
+        };
     }
 
     async Task HandleChatApiAsync(HttpListenerRequest req, HttpListenerResponse res)
@@ -339,7 +348,8 @@ public class SimpleApiServer : IDisposable
             }
 
             string? responseJson = null;
-            string? warningInfo = null;
+            // string? warningInfo = null;
+            
             try
             {
                 responseJson = apiType switch
@@ -354,7 +364,7 @@ public class SimpleApiServer : IDisposable
             {
                 // ツールなしで再試行（非ストリーミング）
                 DebugLogger.Api("Retrying non-streaming request without tools...");
-                warningInfo = "使用中のモデルがツール実行に対応していないため、ツールなしで回答を生成します。";
+                // warningInfo = "使用中のモデルがツール実行に対応していないため、ツールなしで回答を生成します。";
                 responseJson = apiType switch
                 {
                     "responses" => await HandleResponsesApiAsync(apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment),
