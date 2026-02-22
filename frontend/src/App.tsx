@@ -98,22 +98,24 @@ function App() {
   const activeTab = tabs[activeTabId];
 
   useEffect(() => {
+    // These functions now depend on currentSettings, so they should be called when currentSettings changes
     updateModelDisplay();
     updateMcpStatusDisplay();
     requestMcpStatus();
 
     const handleWebviewMessage = (event: any) => {
-      if (event.data === "settingsUpdated") {
-        refreshSettings();
-      } else {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.method === "mcpStatus") {
-            updateMcpStatusDisplay(data);
-          }
-        } catch (e) {
-          console.error("Error parsing webview message:", e);
+      try {
+        const parsedData = JSON.parse(event.data);
+        if (parsedData.method === "settingsUpdated") {
+          // Use the settings directly from the message, as C# sends the current state
+          setCurrentSettings(parsedData.settings);
+          console.log('[Settings Updated From C#]', parsedData.settings);
+          // updateModelDisplay and updateMcpStatusDisplay will be called via useEffect due to currentSettings change
+        } else if (parsedData.method === "mcpStatus") {
+          updateMcpStatusDisplay(parsedData);
         }
+      } catch (e) {
+        console.error("Error parsing webview message:", e, "Original message:", event.data);
       }
     };
 
@@ -122,7 +124,7 @@ function App() {
     return () => {
       webview.removeEventListener("message", handleWebviewMessage);
     };
-  }, []);
+  }, [currentSettings]); // Add currentSettings to dependency array
 
   useEffect(() => {
     updateSendButtonState();
@@ -175,15 +177,6 @@ function App() {
     }
     setMcpStatus(newStatusText);
     setMcpStatusClass(newStatusClass);
-  };
-
-  const refreshSettings = () => {
-    const newSettings = loadSettings();
-    setCurrentSettings(newSettings);
-    console.log('[Settings Updated]', newSettings);
-    updateModelDisplay();
-    updateMcpStatusDisplay();
-    requestMcpStatus();
   };
 
   const requestMcpStatus = () => {

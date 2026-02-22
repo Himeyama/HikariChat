@@ -22,6 +22,8 @@ public sealed partial class MainWindow : Window
 
     public string ServerUri { get; set; } = "";
 
+    public ApiSettings CurrentApiSettings { get; private set; }
+
     /// <summary>
     /// Ollama が利用可能か
     /// </summary>
@@ -36,6 +38,8 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
+        CurrentApiSettings = new ApiSettings(); // Initialize to prevent CS8618 warning
+
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
 
@@ -43,12 +47,26 @@ public sealed partial class MainWindow : Window
 
         InitializePreview();
         InitializeOllamaAsync();
+        InitializeCurrentApiSettings();
+    }
+
+    async void InitializeCurrentApiSettings()
+    {
+        var loadedSettings = await ApiSettingsManager.LoadAsync();
+        if (loadedSettings != null)
+        {
+            CurrentApiSettings = loadedSettings; // Update with loaded settings
+        }
+        LogInfo($"Initialized CurrentApiSettings. Model: {CurrentApiSettings.Model}");
+        // Initial send of settings to WebView2
+        SendCurrentSettingsToWebView();
     }
 
     /// <summary>
     /// バックグラウンドで Ollama の状態を確認
     /// </summary>
     async void InitializeOllamaAsync()
+
     {
         try
         {
@@ -247,10 +265,23 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    public void NotifySettingsUpdated()
+    public async void NotifySettingsUpdated()
     {
-        // メインウィンドウの WebView2 に設定更新を通知
-        Preview.CoreWebView2?.PostWebMessageAsString("settingsUpdated");
+        LogInfo("NotifySettingsUpdated called. Reloading settings and updating WebView2.");
+        CurrentApiSettings = await ApiSettingsManager.LoadAsync();
+        SendCurrentSettingsToWebView();
+    }
+
+    private void SendCurrentSettingsToWebView()
+    {
+        var settingsMessage = new
+        {
+            method = "settingsUpdated",
+            settings = CurrentApiSettings
+        };
+        var json = JsonSerializer.Serialize(settingsMessage);
+        Preview.CoreWebView2?.PostWebMessageAsString(json);
+        LogInfo($"Sent updated settings to WebView2: {json}");
     }
 
     void LogInfo(string message, string memberName = "", string sourceFilePath = "", int sourceLineNumber = 0)
