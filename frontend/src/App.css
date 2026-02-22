@@ -111,7 +111,7 @@
 }
 
 .window-control-icon:hover {
-    background-color: #FFFFFF88 !important;
+    background-color: #00000088 !important;
 }
 
 .window-control-icon.close-button:hover {
@@ -121,7 +121,7 @@
 
 /* Chat Messages Area */
 .chat-messages {
-    height: calc(100vh - 271px); /* Restoring this as per user request to fix scrolling */
+    height: calc(100vh - 294px); /* Restoring this as per user request to fix scrolling */
     flex-grow: 1; /* Restoring this as per user request to fix scrolling */
     overflow-y: scroll;
     padding: var(--space-3);
@@ -290,9 +290,35 @@
 
 .chat-input-area {
     border-top: 1px solid var(--gray-6);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--space-2);
+    /* display: grid; */
+    /* grid-template-columns: 1fr auto; */
+    /* gap: var(--space-2); */
+    display: grid !important;
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr;
+}
+
+.chat-input-area div {
+    border-radius: var(--radius-6) !important;
+    padding: 16px;
+}
+
+.chat-input-area textarea {
+    font-size: 16px;
+    font-family: "BIZ UDGothic", "Noto Sans JP";
+}
+
+.chat-input-area div {
+    grid-row: 1 / 2;
+    grid-column: 1 / 2;
+}
+
+.chat-input-area button {
+    grid-row: 1 / 2;
+    grid-column: 1 / 2;
+    width: 64px;
+    border-radius: var(--radius-6);
+    margin: auto 8px 8px auto;
 }
 
 .title-bar-controls {
@@ -350,4 +376,8 @@
 .tab-close-button:hover {
     background-color: #cecece;
     border-radius: 4px;
+}
+
+.settings-tabs-list button {
+    outline: 0 !important;
 }

@@ -580,19 +580,10 @@ function App() {
               <Box
                 className="chat-input-area"
                 pt="4"
-                style={{
-                  borderTop: '1px solid var(--gray-6)',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto', // TextArea takes remaining space, Button takes auto width
-                  gap: 'var(--space-2)', // Equivalent to gap="2"
-                }}
               >
                 <TextArea
                   placeholder="メッセージを入力..."
                   rows={3}
-                  style={{
-                    // flexGrow: 1 is no longer needed directly on TextArea, as grid handles sizing
-                  }}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => {
