@@ -212,6 +212,7 @@ function App() {
   const callChatApi = async (messages: ChatMessage[]): Promise<{ content: string; toolCalls: ToolCall[] }> => {
     const useStreaming = currentSettings.streaming;
     let accumulatedContent = '';
+    let messageAdded = false;
 
     return new Promise((resolve, reject) => {
       sendChatMessage(messages, {
@@ -227,17 +228,14 @@ function App() {
         onContent: (content: string) => {
           accumulatedContent += content;
           // ストリーミング中に UI を更新
+          if (!messageAdded) {
+            addMessage('', 'assistant');
+            messageAdded = true;
+          }
           setTabs(prevTabs => {
             const currentTabId = activeTabIdRef.current;
             const history = [...prevTabs[currentTabId].conversationHistory];
-            // アシスタントメッセージが存在しない場合は追加
-            if (history.length === 0 || history[history.length - 1].role !== 'assistant') {
-              history.push({
-                role: 'assistant',
-                content: accumulatedContent
-              });
-            } else {
-              // 最後のメッセージを更新
+            if (history.length > 0) {
               history[history.length - 1] = {
                 role: 'assistant',
                 content: accumulatedContent
@@ -302,9 +300,12 @@ function App() {
     // Send message to chat API
     const result = await callChatApi(localMessages);
 
-    // Add assistant message to UI and local messages
+    // アシスタントメッセージをローカルメッセージに追加
+    // 非ストリーミング時は UI にも追加（ストリーミング時は UI 更新済み）
     if (result.content || result.toolCalls.length > 0) {
-      addMessage(result.content, "assistant");
+      if (!currentSettings.streaming) {
+        addMessage(result.content, "assistant");
+      }
       localMessages.push({ role: "assistant", content: result.content });
     }
 
