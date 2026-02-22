@@ -113,8 +113,22 @@ public sealed partial class MainWindow : Window
         InitializeWindowPresenter();
         if (preview.CoreWebView2 != null)
             preview.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
-        if (ServerUri != "")
+        
+        // フロントエンドを読み込む
+        string indexPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", "index.html");
+        if (File.Exists(indexPath))
+        {
+            preview.Source = new Uri($"file:///{indexPath.Replace("\\", "/")}");
+            LogInfo($"Loaded frontend: {indexPath}");
+        }
+        else if (ServerUri != "")
+        {
             preview.Source = new Uri(ServerUri);
+        }
+        else
+        {
+            LogInfo("Frontend not found and ServerUri is empty");
+        }
     }
 
     void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
