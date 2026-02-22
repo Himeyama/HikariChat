@@ -10,12 +10,11 @@
 CApp/
 ├── CApp/                          # C# WPF アプリケーション本体
 │   ├── Assets/
-│   │   ├── EditorUI/              # WebView2 用フロントエンド UI
-│   │   │   ├── index.html         # メイン UI 画面
-│   │   │   ├── settings.html      # 設定画面
-│   │   │   ├── app.js             # メイン画面の JavaScript
-│   │   │   ├── settings.js        # 設定画面の JavaScript
-│   │   │   └── styles.css         # 共通スタイル
+│   │   ├── EditorUI/              # frontend/ からビルドされた WebView2 用フロントエンド UI
+│   │   ├── index.html         # メイン UI 画面
+│   │   ├── settings.html      # 設定画面
+│   │   ├── vite.svg
+│   │   ├── assets/            # ビルドされたJS/CSSなどのアセット
 │   │   └── App.ico                # アプリケーションアイコン
 │   ├── Properties/                # アプリケーション設定ファイル
 │   ├── Strings/                   # リソース文字列
@@ -25,6 +24,7 @@ CApp/
 │   ├── MainWindow.xaml / .xaml.cs # メインウィンドウ (WebView2 ホスト)
 │   ├── SettingsWindow.xaml / .xaml.cs  # 設定ウィンドウ
 │   └── CApp.csproj                # プロジェクトファイル
+├── frontend/                      # フロントエンドのソースコードとビルド設定
 ├── docs/                          # ドキュメント
 ├── dev.ps1                        # 開発用 PowerShell スクリプト
 ├── setup.ps1                      # セットアップ用 PowerShell スクリプト
@@ -52,7 +52,7 @@ WebView2 コントロールを含むメインウィンドウ。`Assets/EditorUI/
 API エンドポイントや設定を管理します。
 
 ### CApp/Assets/EditorUI/
-WebView2 で表示されるフロントエンド UI ファイル群。
+`frontend/` ディレクトリからビルドされ、WebView2 で表示されるフロントエンド UI ファイル群。
 
 ## 開発フロー
 
