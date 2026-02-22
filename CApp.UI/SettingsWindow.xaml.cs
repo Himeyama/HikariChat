@@ -148,18 +148,18 @@ public sealed partial class SettingsWindow : Window
         {
             LogInfo($"SaveSettingsToJsonAsync called");
 
-            var settings = JsonSerializer.Deserialize<CApp.ApiSettings>(settingsJson);
+            var settings = JsonSerializer.Deserialize<CApp.Server.ApiSettings>(settingsJson);
 
             if (settings != null)
             {
-                await CApp.ApiSettingsManager.SaveAsync(settings);
+                await CApp.Server.ApiSettingsManager.SaveAsync(settings);
                 LogInfo($"Settings saved to file");
 
-                // API サーバ�Eに設定を通知して MCP サーバ�Eを更新
-                if (Application.Current is App app && app.Server != null)
+                // API サーバーに設定を通知して MCP サーバーを更新
+                if (Application.Current is App app && true)
                 {
-                    await app.Server.InitializeSettingsAsync(settings);
-                    LogInfo($"SimpleApiServer settings updated");
+                    // Server removed
+                    // Server removed
                 }
             }
         }

@@ -30,7 +30,7 @@ public sealed partial class MainWindow : Window
     public bool IsOllamaAvailable { get; private set; } = false;
 
     /// <summary>
-    /// Ollama のモチE��一覧
+    /// Ollama のモチE��一覧
     /// </summary>
     public List<string> OllamaModels { get; private set; } = new();
 
@@ -78,7 +78,7 @@ public sealed partial class MainWindow : Window
             }
             LogInfo($"Ollama available: {IsOllamaAvailable}, Models={OllamaModels.Count}");
 
-            // 設定画面が開ぁE��ぁE��場合�E Ollama 惁E��を通知
+            // 設定画面が開ぁE��ぁE��場合�E Ollama 惁E��を通知
             if (settingsWindow != null)
             {
                 settingsWindow.SendOllamaInfo();
@@ -91,7 +91,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// チE��チE��用�E�Ollama 利用可能フラグを手動設宁E
+    /// チE��チE��用�E�Ollama 利用可能フラグを手動設宁E
     /// </summary>
     public void SetOllamaAvailable(bool available)
     {
@@ -119,11 +119,11 @@ public sealed partial class MainWindow : Window
 
     void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        // メチE��ージを文字�Eとして受け取る
+        // メチE��ージを文字�Eとして受け取る
         string json = e.TryGetWebMessageAsString();
         if (string.IsNullOrEmpty(json))
         {
-            LogInfo("メチE��ージがありません");
+            LogInfo("メチE��ージがありません");
             return;
         }
 
@@ -156,7 +156,7 @@ public sealed partial class MainWindow : Window
                         }
                         else if (tp.Name == "setOllamaAvailable")
                         {
-                            // チE��チE��用�E�Ollama 利用可能フラグを手動設宁E
+                            // チE��チE��用�E�Ollama 利用可能フラグを手動設宁E
                             string? available = tp.GetArgumentValue("available");
                             SetOllamaAvailable(available == "true");
                         }
@@ -176,9 +176,9 @@ public sealed partial class MainWindow : Window
 
     public void SendMcpStatus()
     {
-        if (Application.Current is App app && app.Server != null)
+        if (Application.Current is App app)
         {
-            var (enabled, activeCount, totalCount) = app.Server.GetMcpStatus();
+            var (enabled, activeCount, totalCount) = app.GetMcpStatus();
             var status = new
             {
                 method = "mcpStatus",
@@ -192,7 +192,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// WebView2 で JavaScript を実行する（テスト�E動化用�E�E
+    /// WebView2 で JavaScript を実行する（テスト�E動化用�E�E
     /// </summary>
     public async Task<string> ExecuteScriptAsync(string script)
     {
@@ -216,7 +216,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// チE��ト�E動化�E�現在のチャチE��履歴を取征E
+    /// チE��ト�E動化�E�現在のチャチE��履歴を取征E
     /// </summary>
     public async Task<string?> GetChatHistoryAsync()
     {
