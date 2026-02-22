@@ -297,16 +297,11 @@ public sealed partial class MainWindow : Window
     void OpenSettingsWindow()
     {
         LogInfo($"OpenSettingsWindow called. ServerUri={ServerUri}");
-        
+
         if (settingsWindow == null)
         {
-            string settingsUri = ServerUri;
-            if (ServerUri.Contains("index.html"))
-                settingsUri = ServerUri.Replace("index.html", "settings.html");
-            else if (ServerUri.EndsWith("/"))
-                settingsUri = ServerUri + "settings.html";
-            else
-                settingsUri = ServerUri + "/settings.html";
+            // 仮想ホスト名を使用
+            string settingsUri = "https://app.assets/settings.html";
 
             LogInfo($"Creating SettingsWindow with Uri={settingsUri}");
 

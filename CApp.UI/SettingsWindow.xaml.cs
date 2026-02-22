@@ -68,8 +68,16 @@ public sealed partial class SettingsWindow : Window
     async void InitializeSettingsWebView()
     {
         WebView2 settingsWebView = SettingsWebView;
+        
+        // フロントエンドのパスを取得
+        string assetsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI");
+        
+        // CoreWebView2 を初期化
         if (settingsWebView.CoreWebView2 == null)
-            await settingsWebView.EnsureCoreWebView2Async();
+        {
+            var env = await CoreWebView2Environment.CreateAsync();
+            await settingsWebView.EnsureCoreWebView2Async(env);
+        }
 
         InitializeWindowPresenter();
 
@@ -77,6 +85,10 @@ public sealed partial class SettingsWindow : Window
         {
             settingsWebView.CoreWebView2.WebMessageReceived += SettingsWebView_WebMessageReceived;
             settingsWebView.CoreWebView2.NavigationCompleted += SettingsWebView_NavigationCompleted;
+            
+            // 仮想ホスト名マッピングを設定
+            settingsWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "app.assets", assetsPath, CoreWebView2HostResourceAccessKind.Allow);
 
             if (SettingsUri != "")
                 settingsWebView.Source = new Uri(SettingsUri);
