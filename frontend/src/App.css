@@ -88,11 +88,14 @@
     margin-bottom: var(--space-3);
     border-bottom: 1px solid var(--gray-6);
     display: flex;
-    outline: 0;
 }
 
 .chat-tabs-list .rt-TabsTrigger .rt-Button:hover {
     opacity: 1;
+}
+
+.chat-tabs-list button {
+    outline: 0 !important;
 }
 
 .window-control-icon {
