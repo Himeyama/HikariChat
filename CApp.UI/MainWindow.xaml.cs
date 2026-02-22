@@ -108,18 +108,30 @@ public sealed partial class MainWindow : Window
     async void InitializePreview()
     {
         WebView2 preview = Preview;
+        
+        // フロントエンドのパスを取得
+        string assetsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI");
+        string indexPath = Path.Combine(assetsPath, "index.html");
+        
+        // CoreWebView2 を初期化
         if (preview.CoreWebView2 == null)
-            await preview.EnsureCoreWebView2Async();
+        {
+            var env = await CoreWebView2Environment.CreateAsync();
+            await preview.EnsureCoreWebView2Async(env);
+        }
+        
         InitializeWindowPresenter();
         if (preview.CoreWebView2 != null)
             preview.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
         
         // フロントエンドを読み込む
-        string indexPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI", "index.html");
         if (File.Exists(indexPath))
         {
-            preview.Source = new Uri($"file:///{indexPath.Replace("\\", "/")}");
-            LogInfo($"Loaded frontend: {indexPath}");
+            // HTTP サーバーを使用して提供（CORS 回避のため）
+            preview.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "app.assets", assetsPath, CoreWebView2HostResourceAccessKind.Allow);
+            preview.Source = new Uri("https://app.assets/index.html");
+            LogInfo($"Loaded frontend: https://app.assets/index.html");
         }
         else if (ServerUri != "")
         {
