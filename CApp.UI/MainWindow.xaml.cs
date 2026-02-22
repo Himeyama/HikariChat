@@ -18,11 +18,11 @@ namespace CApp;
 public sealed partial class MainWindow : Window
 {
     OverlappedPresenter? presenter;
-    CApp.Server.OllamaClient? _ollamaClient;
+    OllamaClient? _ollamaClient;
 
     public string ServerUri { get; set; } = "";
 
-    public CApp.Server.ApiSettings CurrentApiSettings { get; private set; }
+    public ApiSettings CurrentApiSettings { get; private set; }
 
     /// <summary>
     /// Ollama が利用可能か
@@ -38,7 +38,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        CurrentApiSettings = new CApp.Server.ApiSettings(); // Initialize to prevent CS8618 warning
+        CurrentApiSettings = new ApiSettings(); // Initialize to prevent CS8618 warning
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);

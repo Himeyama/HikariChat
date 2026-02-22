@@ -36,13 +36,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CApp.Server\CApp.Server.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="Assets\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="McpClient.cs" />
+    <Compile Include="McpManager.cs" />
+    <Compile Include="ApiSettings.cs" />
+    <Compile Include="ApiSettingsManager.cs" />
+    <Compile Include="OllamaClient.cs" />
+    <Compile Include="DebugLogger.cs" />
   </ItemGroup>
 
 </Project>
