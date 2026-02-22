@@ -8,7 +8,7 @@
 }
 
 .title-bar {
-    background: var(--gray-3);
+    background: linear-gradient(45deg, #61a553, #232731);
     display: grid !important;
     grid-template-columns: 1fr auto;
     align-items: center;
@@ -16,7 +16,9 @@
 
 .title-bar-text {
     font-weight: bold;
-    color: var(--gray-12);
+    color: white;
+    font-family: "BIZ UDPGothic";
+    margin-left: 8px;
 }
 
 .window-body {
@@ -88,32 +90,6 @@
     display: flex;
 }
 
-.chat-tabs-list .rt-TabsTrigger {
-    /* border: none;
-    border-bottom: 2px solid transparent;
-    padding: var(--space-2) var(--space-3);
-    background: none;
-    cursor: pointer;
-    font-size: var(--font-size-2);
-    color: var(--gray-11);
-    transition: all 0.2s ease; */
-}
-
-.chat-tabs-list .rt-TabsTrigger[data-state='active'] {
-    /* border-bottom-color: var(--blue-9);
-    color: var(--blue-11);
-    font-weight: var(--font-weight-6); */
-}
-
-.chat-tabs-list .rt-TabsTrigger:hover {
-    /* color: var(--blue-10);
-    background: none !important; */
-}
-
-.chat-tabs-list .rt-TabsTrigger .rt-Button { /* Close button within tab */
-    /* margin-left: var(--space-2);
-    opacity: 0.7; */
-}
 .chat-tabs-list .rt-TabsTrigger .rt-Button:hover {
     opacity: 1;
 }
@@ -122,15 +98,16 @@
     font-family: 'Segoe Fluent Icons' !important;
     font-size: 10px !important;
     background-color: transparent !important;
-    color: #000000 !important;
+    color: #FFFFFF !important;
     border-radius: 0 !important;
     height: 40px !important;
     display: block;
     width: 46px !important;
+    outline: none !important;
 }
 
 .window-control-icon:hover {
-    background-color: #B8B8B8 !important;
+    background-color: #FFFFFF88 !important;
 }
 
 .window-control-icon.close-button:hover {

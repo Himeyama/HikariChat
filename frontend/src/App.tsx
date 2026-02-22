@@ -535,12 +535,12 @@ function App() {
           <Text weight="bold" className="title-bar-text">ひかりチャット</Text>
         </Box>
         <Box className="title-bar-controls">
-          <Button className="window-control-icon" aria-label="Minimize" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "minimize" }} }')}>&#xE921;</Button>
+          <Button className="window-control-icon" aria-label="Minimize" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "minimize" }} }')}>&#xEF2D;</Button>
           <Button className="window-control-icon" aria-label={isMaximized ? "Restore" : "Maximize"} onClick={() => {
               setIsMaximized(prev => !prev);
               webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "toggleMaximize" }} }');
-            }}>{isMaximized ? '\uE923' : '\uE922'}</Button>
-          <Button className="window-control-icon close-button" aria-label="Close" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "close" }} }')}>&#xE8BB;</Button>
+            }}>{isMaximized ? '\uEF2F' : '\uEF2E'}</Button>
+          <Button className="window-control-icon close-button" aria-label="Close" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "close" }} }')}>&#xEF2C;</Button>
         </Box>
       </Box>
 
