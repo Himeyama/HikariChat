@@ -144,12 +144,11 @@
     flex-grow: 1; /* Restoring this as per user request to fix scrolling */
     overflow-y: scroll;
     padding: var(--space-3);
-    background: var(--gray-2);
     min-height: 0;
 }
 
 .chat-messages:empty::before {
-    content: "AI とのチャットを開始しましょう";
+    content: "AI \3068\306E\30C1\30E3\30C3\30C8\3092\958B\59CB\3057\307E\3057\3087\3046";
     color: var(--gray-9);
     display: block;
     text-align: center;
@@ -221,30 +220,27 @@
 }
 
 .message-content pre {
-    background: var(--gray-12); /* Dark background for code */
-    color: var(--gray-1);
-    padding: var(--space-3);
-    border-radius: var(--radius-3);
+    border: solid 1px #DCDBD9;
+    border-radius: var(--radius-4);
+    padding: var(--space-4);
     overflow-x: auto;
-    margin: var(--space-3) 0;
+    margin: var(--space-4) 0;
     font-size: var(--font-size-2);
     line-height: var(--line-height-2);
     font-family: "PlemolJP Console NF", "Cascadia Code", consolas, monospace;
-    font-weight: 600;
 }
 
 .message-content code {
-    background: var(--gray-6); /* Inline code background */
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-1);
     font-family: var(--font-family-code);
-    font-size: var(--font-size-1);
+    font-size: var(--font-size-2) !important;
 }
 
 .message-content pre code {
     background: transparent;
     padding: 0;
-    color: inherit;
+    color: var(--gray-12);
 }
 
 .message-content ul,
@@ -372,4 +368,100 @@
 .tab-close-button:hover {
     background-color: #cecece;
     border-radius: 4px;
+}
+/*
+Github theme for highlight.js
+*/
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0.5em;
+  color: #333;
+  background: #f8f8f8;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #998;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #333;
+  font-weight: bold;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #008080;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #d14;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #900;
+  font-weight: bold;
+}
+
+.hljs-subst {
+  font-weight: normal;
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  color: #458;
+  font-weight: bold;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-attribute,
+.hljs-attr {
+  font-weight: normal;
+}
+
+.hljs-regexp,
+.hljs-link {
+  color: #009926;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #990073;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #0086b3;
+}
+
+.hljs-meta {
+  color: #999;
+  font-weight: bold;
+}
+
+.hljs-deletion {
+  background: #fdd;
+}
+
+.hljs-addition {
+  background: #dfd;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
 }

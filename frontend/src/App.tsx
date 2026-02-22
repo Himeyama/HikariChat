@@ -1,7 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
-import { marked } from 'marked';
+import { Marked } from 'marked';
+import hljs from 'highlight.js';
+
+// Create a new Marked instance and configure it
+const customMarked = new Marked();
+customMarked.use({
+  renderer: {
+    code({ text, lang = '' }: { text: string, lang?: string }) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+      const highlightedCode = hljs.highlight(text, { language, ignoreIllegals: true }).value;
+      return `<pre><code class="hljs language-${language}">${highlightedCode}</code></pre>`;
+    }
+  }
+});
 
 // Mock WebView2 communication for now
 const mockWebView2 = {
@@ -565,7 +578,7 @@ function App() {
                     <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
                       <Box
                         className="message-content"
-                        dangerouslySetInnerHTML={{ __html: message.role === 'assistant' ? marked.parse(message.content) : message.content }}
+                        dangerouslySetInnerHTML={{ __html: message.role === 'assistant' ? customMarked.parse(message.content) : message.content }}
                       />
                     </Box>
                   ))

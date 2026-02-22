@@ -3,6 +3,12 @@ import { Box, Button, Flex, Tabs, TextField, Select, Switch, TextArea, Text } fr
 import '@radix-ui/themes/styles.css'; // Ensure Radix styles are loaded
 import './App.css'; // Reuse general styles like .window, .title-bar etc.
 
+const presetDisplayNames: Record<string, string> = {
+    openai: "OpenAI",
+    azure_openai: "Azure OpenAI",
+    custom: "カスタム",
+};
+
 // Mock WebView2 communication for now
 const mockWebView2 = {
     postMessage: (message: string) => console.log('WebView2 Post Message (Settings):', message),
@@ -194,6 +200,12 @@ function SettingsApp() {
     }, [apiType]);
 
     useEffect(() => {
+        // This useEffect runs when endpointPreset, ollamaAvailable, or ollamaModels change
+        // And `model` might need re-evaluation based on the new list
+        updateModelList(endpointPreset, model); // Pass current model to try to preserve it
+    }, [endpointPreset, ollamaAvailable, ollamaModels]);
+
+    useEffect(() => {
         updateEndpoint(); // Call updateEndpoint explicitly
     }, [endpointPreset, apiType]); // Re-evaluate when preset or apiType changes
 
@@ -284,7 +296,7 @@ function SettingsApp() {
                     <Text size="2" weight="bold" className="title-bar-text">設定</Text>
                 </Flex>
                 <Flex gap="1">
-                    <Button className="window-control-icon close-button" aria-label="Close" size="1" onClick={closeButtonHandler}>&#xE8BB;</Button>
+                    <Button className="window-control-icon close-button" aria-label="Close" size="1" onClick={closeButtonHandler}>&#xEF2C;</Button>
                 </Flex>
             </Flex>
 
@@ -325,7 +337,7 @@ function SettingsApp() {
 
                                             return (
                                                 <Select.Item key={key} value={key} disabled={disabled}>
-                                                    {key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}
+                                                    {presetDisplayNames[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '))}
                                                 </Select.Item>
                                             );
                                         })}
