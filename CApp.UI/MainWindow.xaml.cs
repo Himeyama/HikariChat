@@ -22,7 +22,7 @@ public sealed partial class MainWindow : Window
 
     public string ServerUri { get; set; } = "";
 
-    public CApp.ApiSettings CurrentApiSettings { get; private set; }
+    public CApp.Server.ApiSettings CurrentApiSettings { get; private set; }
 
     /// <summary>
     /// Ollama が利用可能ぁE
@@ -38,7 +38,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        CurrentApiSettings = new CApp.ApiSettings(); // Initialize to prevent CS8618 warning
+        CurrentApiSettings = new CApp.Server.ApiSettings(); // Initialize to prevent CS8618 warning
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
@@ -52,7 +52,7 @@ public sealed partial class MainWindow : Window
 
     async void InitializeCurrentApiSettings()
     {
-        var loadedSettings = await CApp.ApiSettingsManager.LoadAsync();
+        var loadedSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
         if (loadedSettings != null)
         {
             CurrentApiSettings = loadedSettings; // Update with loaded settings
@@ -321,7 +321,7 @@ public sealed partial class MainWindow : Window
     public async void NotifySettingsUpdated()
     {
         LogInfo("NotifySettingsUpdated called. Reloading settings and updating WebView2.");
-        CurrentApiSettings = await CApp.ApiSettingsManager.LoadAsync();
+        CurrentApiSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
         SendCurrentSettingsToWebView();
     }
 

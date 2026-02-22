@@ -167,11 +167,15 @@ public sealed partial class SettingsWindow : Window
                 await CApp.Server.ApiSettingsManager.SaveAsync(settings);
                 LogInfo($"Settings saved to file");
 
-                // API サーバーに設定を通知して MCP サーバーを更新
-                if (Application.Current is App app && true)
+                // アプリに MCP サーバーの更新を通知
+                if (Application.Current is App app)
                 {
-                    // Server removed
-                    // Server removed
+                    await app.UpdateMcpSettingsAsync(settings);
+                    LogInfo($"MCP settings updated in App");
+                    
+                    // MCP ステータスをフロントエンドに送信
+                    app.MainWindow?.SendMcpStatus();
+                    LogInfo($"MCP status sent to frontend");
                 }
             }
         }

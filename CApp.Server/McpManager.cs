@@ -3,49 +3,47 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using ModelContextProtocol.Client;
 
-namespace CApp;
+namespace CApp.Server;
 
+/// <summary>
+/// MCP クライアントの管理
+/// </summary>
 public class McpManager : IDisposable
 {
-    private readonly Dictionary<string, McpClient> _clients = new();
+    private readonly Dictionary<string, McpClientWrapper> _clients = new();
     private ApiSettings _settings = new();
 
     public bool IsEnabled => _settings.McpEnabled;
 
     public async Task UpdateSettingsAsync(ApiSettings settings)
     {
-        DebugLogger.Mcp($"UpdateSettingsAsync called. McpEnabled={settings.McpEnabled}, ServerCount={settings.McpServers.Count}");
         _settings = settings;
 
-        // 削除されたサーバ�Eを停止
+        // 削除されたサーバーを停止
         var removed = _clients.Keys.Except(settings.McpServers.Keys).ToList();
         foreach (var name in removed)
         {
-            DebugLogger.Mcp($"Stopping removed MCP server: {name}");
             _clients[name].Dispose();
             _clients.Remove(name);
         }
 
-        // 有効なサーバ�Eのみ起勁E
+        // 有効なサーバーのみ起動
         if (settings.McpEnabled)
         {
-            DebugLogger.Mcp($"MCP is enabled. Starting {settings.McpServers.Count} server(s)...");
             foreach (var kv in settings.McpServers)
             {
                 if (!_clients.ContainsKey(kv.Key))
                 {
                     try
                     {
-                        DebugLogger.Mcp($"Starting MCP server: {kv.Key} (Command: {kv.Value.Command}, Args: {string.Join(" ", kv.Value.Args)})");
-                        var client = new McpClient(kv.Key, kv.Value);
-                        await client.StartAsync();
+                        var client = new McpClientWrapper(kv.Key, kv.Value);
+                        await client.ConnectAsync();
                         _clients[kv.Key] = client;
-                        DebugLogger.Mcp($"MCP server started: {kv.Key}");
                     }
                     catch (Exception ex)
                     {
-                        DebugLogger.Error($"Failed to start MCP server {kv.Key}: {ex.Message}\nStackTrace: {ex.StackTrace}");
                         Console.WriteLine($"[McpManager] Failed to start server {kv.Key}: {ex.Message}");
                     }
                 }
@@ -53,8 +51,6 @@ public class McpManager : IDisposable
         }
         else
         {
-            DebugLogger.Mcp("MCP is disabled. Stopping all servers.");
-            // MCP 無効時�E全サーバ�E停止
             StopAll();
         }
     }
@@ -77,28 +73,21 @@ public class McpManager : IDisposable
         {
             try
             {
-                var result = await client.ListToolsAsync();
-                if (result.TryGetProperty("tools", out var toolsArray))
+                var tools = await client.ListToolsAsync();
+                foreach (var tool in tools)
                 {
-                    foreach (var tool in toolsArray.EnumerateArray())
+                    string namespacedName = $"{client.Name}_{tool.Name}";
+
+                    allTools.Add(new
                     {
-                        string name = tool.GetProperty("name").GetString() ?? "";
-                        // 名前衝突を避けるためサーバ�E名を接頭辞にする (侁E filesystem_read_file)
-                        string namespacedName = $"{client.Name}_{name}";
-                        
-                        var inputSchema = tool.GetProperty("inputSchema").Clone();
-                        
-                        allTools.Add(new
+                        type = "function",
+                        function = new
                         {
-                            type = "function",
-                            function = new
-                            {
-                                name = namespacedName,
-                                description = tool.GetProperty("description").GetString(),
-                                parameters = inputSchema
-                            }
-                        });
-                    }
+                            name = namespacedName,
+                            description = tool.Description,
+                            parameters = tool.InputSchema
+                        }
+                    });
                 }
             }
             catch (Exception ex)
@@ -109,7 +98,7 @@ public class McpManager : IDisposable
         return allTools;
     }
 
-    public async Task<JsonElement> CallToolAsync(string namespacedName, JsonElement arguments)
+    public async Task<McpCallToolResult> CallToolAsync(string namespacedName, JsonElement arguments)
     {
         if (!_settings.McpEnabled) throw new Exception("MCP is not enabled");
 

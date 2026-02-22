@@ -15,7 +15,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
     <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
@@ -30,8 +30,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+    <!-- <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" /> -->
+    <!-- <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" /> -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250513003" />
   </ItemGroup>
 

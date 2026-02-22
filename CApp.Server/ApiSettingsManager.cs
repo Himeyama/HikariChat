@@ -3,10 +3,10 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace CApp;
+namespace CApp.Server;
 
 /// <summary>
-/// API 設定�E永続化を管琁E
+/// API 設定�E永続化を管琁E
 /// </summary>
 public static class ApiSettingsManager
 {
