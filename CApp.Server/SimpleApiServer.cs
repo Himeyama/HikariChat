@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -280,15 +281,34 @@ public class SimpleApiServer : IDisposable
             DebugLogger.Mcp($"Tool execution requested: {toolName}");
             DebugLogger.Mcp($"Tool arguments: {arguments}");
             Console.WriteLine($"[MCP] Executing tool: {toolName}");
-            
+
             var result = await _mcpManager.CallToolAsync(toolName, arguments);
 
             DebugLogger.Mcp($"Tool execution completed: {toolName}");
             Console.WriteLine($"[MCP] Tool execution completed: {toolName}");
 
+            // MCP ツールの実行結果をフロントエンドに返す
+            // Content からテキストを抽出
+            string? responseText = null;
+            if (result.Content != null && result.Content.Count > 0)
+            {
+                var textContent = result.Content.FirstOrDefault(c => c.Type == "text");
+                if (textContent != null)
+                {
+                    responseText = textContent.Text;
+                }
+            }
+
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
-            await WriteJsonAsync(res, result);
+            
+            // ツール実行結果を返す
+            await WriteJsonAsync(res, new 
+            {
+                success = !result.IsError,
+                content = responseText,
+                result = result // 元の結果も含める
+            });
         }
         catch (Exception ex)
         {
