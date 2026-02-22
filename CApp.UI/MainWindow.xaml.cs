@@ -18,19 +18,19 @@ namespace CApp;
 public sealed partial class MainWindow : Window
 {
     OverlappedPresenter? presenter;
-    OllamaClient? _ollamaClient;
+    CApp.OllamaClient? _ollamaClient;
 
     public string ServerUri { get; set; } = "";
 
-    public ApiSettings CurrentApiSettings { get; private set; }
+    public CApp.ApiSettings CurrentApiSettings { get; private set; }
 
     /// <summary>
-    /// Ollama が利用可能か
+    /// Ollama が利用可能ぁE
     /// </summary>
     public bool IsOllamaAvailable { get; private set; } = false;
 
     /// <summary>
-    /// Ollama のモデル一覧
+    /// Ollama のモチE��一覧
     /// </summary>
     public List<string> OllamaModels { get; private set; } = new();
 
@@ -38,7 +38,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        CurrentApiSettings = new ApiSettings(); // Initialize to prevent CS8618 warning
+        CurrentApiSettings = new CApp.ApiSettings(); // Initialize to prevent CS8618 warning
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
@@ -52,7 +52,7 @@ public sealed partial class MainWindow : Window
 
     async void InitializeCurrentApiSettings()
     {
-        var loadedSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
+        var loadedSettings = await CApp.ApiSettingsManager.LoadAsync();
         if (loadedSettings != null)
         {
             CurrentApiSettings = loadedSettings; // Update with loaded settings
@@ -63,14 +63,14 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// バックグラウンドで Ollama の状態を確認
+    /// バックグラウンドで Ollama の状態を確誁E
     /// </summary>
     async void InitializeOllamaAsync()
 
     {
         try
         {
-            _ollamaClient = new CApp.Server.OllamaClient();
+            _ollamaClient = new CApp.OllamaClient();
             IsOllamaAvailable = await _ollamaClient.IsAvailableAsync();
             if (IsOllamaAvailable)
             {
@@ -78,7 +78,7 @@ public sealed partial class MainWindow : Window
             }
             LogInfo($"Ollama available: {IsOllamaAvailable}, Models={OllamaModels.Count}");
 
-            // 設定画面が開いている場合は Ollama 情報を通知
+            // 設定画面が開ぁE��ぁE��場合�E Ollama 惁E��を通知
             if (settingsWindow != null)
             {
                 settingsWindow.SendOllamaInfo();
@@ -91,7 +91,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// デバッグ用：Ollama 利用可能フラグを手動設定
+    /// チE��チE��用�E�Ollama 利用可能フラグを手動設宁E
     /// </summary>
     public void SetOllamaAvailable(bool available)
     {
@@ -119,11 +119,11 @@ public sealed partial class MainWindow : Window
 
     void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        // メッセージを文字列として受け取る
+        // メチE��ージを文字�Eとして受け取る
         string json = e.TryGetWebMessageAsString();
         if (string.IsNullOrEmpty(json))
         {
-            LogInfo("メッセージがありません");
+            LogInfo("メチE��ージがありません");
             return;
         }
 
@@ -156,7 +156,7 @@ public sealed partial class MainWindow : Window
                         }
                         else if (tp.Name == "setOllamaAvailable")
                         {
-                            // デバッグ用：Ollama 利用可能フラグを手動設定
+                            // チE��チE��用�E�Ollama 利用可能フラグを手動設宁E
                             string? available = tp.GetArgumentValue("available");
                             SetOllamaAvailable(available == "true");
                         }
@@ -192,7 +192,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// WebView2 で JavaScript を実行する（テスト自動化用）
+    /// WebView2 で JavaScript を実行する（テスト�E動化用�E�E
     /// </summary>
     public async Task<string> ExecuteScriptAsync(string script)
     {
@@ -216,7 +216,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// テスト自動化：現在のチャット履歴を取得
+    /// チE��ト�E動化�E�現在のチャチE��履歴を取征E
     /// </summary>
     public async Task<string?> GetChatHistoryAsync()
     {
@@ -300,7 +300,7 @@ public sealed partial class MainWindow : Window
     public async void NotifySettingsUpdated()
     {
         LogInfo("NotifySettingsUpdated called. Reloading settings and updating WebView2.");
-        CurrentApiSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
+        CurrentApiSettings = await CApp.ApiSettingsManager.LoadAsync();
         SendCurrentSettingsToWebView();
     }
 
