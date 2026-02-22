@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CApp;
+namespace CApp.Server;
 
 /// <summary>
 /// デバッグログ管理

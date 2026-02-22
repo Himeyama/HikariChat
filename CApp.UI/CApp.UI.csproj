@@ -1,32 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- アプリ名 -->
     <AssemblyName>CApp</AssemblyName>
-    
-    <!-- アプリの説明 -->
+    <RootNamespace>CApp</RootNamespace>
     <Description>This app is an example of a small WinUI app.</Description>
-
-    <!-- 作者 -->
     <Authors>MURATA Mitsuharu</Authors>
-
-    <!-- 法人・個人名 -->
     <Company>MURATA Mitsuharu</Company>
-
-    <!-- 著作権情報 -->
     <Copyright>(c) $([System.DateTime]::Now.Year) $(Company)</Copyright>
-
-    <!-- 発行先 -->
     <PublishDir>publish</PublishDir>
-    
-    <!-- アイコン -->
     <ApplicationIcon>Assets/App.ico</ApplicationIcon>
-
-    <!-- リポジトリの場所 -->
     <RepositoryUrl>https://github.com/himeyama/CApp</RepositoryUrl>
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
-
-    <!-- LICENSE & README.md の場所 -->
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
@@ -35,9 +19,9 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
-    <ApplicationManifest>app.manifest</ApplicationManifest> <!-- HiDpi 対応に必要 -->
-
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Nullable>enable</Nullable>
+    <UseWinUI>true</UseWinUI>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,14 +30,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Assets\**\*">
-      <!-- ビルド出力にコピー（変更されたときだけ） -->
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <!-- dotnet publish 時にもコピー -->
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250513003" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CApp.Server\CApp.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

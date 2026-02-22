@@ -3,7 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace CApp;
+namespace CApp.Server;
 
 /// <summary>
 /// API 設定の永続化を管理

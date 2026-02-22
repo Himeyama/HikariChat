@@ -8,7 +8,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using CApp;
+
+namespace CApp.Server;
 
 public class SimpleApiServer : IDisposable
 {
@@ -25,6 +26,45 @@ public class SimpleApiServer : IDisposable
 
     private readonly McpManager _mcpManager = new();
     private ApiSettings _currentSettings = new();
+
+    // UI から注入されるデリゲート
+    public Func<string, Task<string?>>? ExecuteScriptAsync { get; set; }
+    public Func<Task<string?>>? GetChatHistoryAsync { get; set; }
+
+    // Frontend の ChatMessage 構造をミラーリング
+    public class FrontendChatMessage
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = "";
+        [JsonPropertyName("role")]
+        public string Role { get; set; } = "";
+        [JsonPropertyName("content")]
+        public string Content { get; set; } = "";
+        [JsonPropertyName("tool_call_id")]
+        public string? ToolCallId { get; set; }
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+        [JsonPropertyName("tool_calls")]
+        public JsonElement? ToolCalls { get; set; } // tool_calls は JsonElement のまま扱う
+    }
+
+    // AI API に送信する ChatMessage 構造
+    public class OpenAIChatMessage
+    {
+        [JsonPropertyName("role")]
+        public string Role { get; set; } = "";
+        [JsonPropertyName("content")]
+        public string Content { get; set; } = "";
+        // 他のプロパティは AI サービスによってサポートされるもののみ
+        // 例: name, tool_calls, tool_call_id などは必要に応じて追加する
+        [JsonPropertyName("tool_calls")]
+        public JsonElement? ToolCalls { get; set; }
+        [JsonPropertyName("name")]
+        public string? Name { get; set; } // tool response の name 用
+        [JsonPropertyName("tool_call_id")]
+        public string? ToolCallId { get; set; } // tool response の tool_call_id 用
+    }
+
 
     public SimpleApiServer(string prefix)
     {
@@ -136,6 +176,32 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
+            // テスト自動化用：WebView2 で JavaScript を実行
+            if (path.Equals("/api/test/execute-script", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "POST")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleExecuteScriptAsync(req, res);
+                return;
+            }
+
+            // テスト自動化用：チャット履歴を取得
+            if (path.Equals("/api/test/chat-history", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "GET")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleGetChatHistoryAsync(req, res);
+                return;
+            }
+
             if (req.HttpMethod != "GET")
             {
                 res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
@@ -211,8 +277,15 @@ public class SimpleApiServer : IDisposable
             string toolName = nameElem.GetString() ?? "";
             JsonElement arguments = root.TryGetProperty("arguments", out JsonElement argsElem) ? argsElem : default;
 
-            var result = await _mcpManager.CallToolAsync(toolName, arguments);
+            DebugLogger.Mcp($"Tool execution requested: {toolName}");
+            DebugLogger.Mcp($"Tool arguments: {arguments}");
+            Console.WriteLine($"[MCP] Executing tool: {toolName}");
             
+            var result = await _mcpManager.CallToolAsync(toolName, arguments);
+
+            DebugLogger.Mcp($"Tool execution completed: {toolName}");
+            Console.WriteLine($"[MCP] Tool execution completed: {toolName}");
+
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
             await WriteJsonAsync(res, result);
@@ -221,6 +294,88 @@ public class SimpleApiServer : IDisposable
         {
             res.StatusCode = (int)HttpStatusCode.InternalServerError;
             await WriteJsonAsync(res, new { error = "MCP execution error", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// テスト自動化用：WebView2 で JavaScript を実行
+    /// </summary>
+    async Task HandleExecuteScriptAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        try
+        {
+            Console.WriteLine($"[TestAPI] HandleExecuteScriptAsync called");
+            
+            string requestBody;
+            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
+            
+            Console.WriteLine($"[TestAPI] Request body: {requestBody}");
+
+            using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
+            JsonElement root = jsonDoc.RootElement;
+
+            if (!root.TryGetProperty("script", out JsonElement scriptElem))
+            {
+                res.StatusCode = (int)HttpStatusCode.BadRequest;
+                await WriteJsonAsync(res, new { error = "script is required" });
+                return;
+            }
+
+            string script = scriptElem.GetString() ?? "";
+            Console.WriteLine($"[TestAPI] Script: {script}");
+
+            // 注入されたデリゲートでスクリプトを実行
+            if (ExecuteScriptAsync != null)
+            {
+                Console.WriteLine($"[TestAPI] Executing script via delegate...");
+                var result = await ExecuteScriptAsync(script);
+                Console.WriteLine($"[TestAPI] Script result: '{result}'");
+                res.StatusCode = (int)HttpStatusCode.OK;
+                res.ContentType = "application/json; charset=utf-8";
+                await WriteJsonAsync(res, new { result = result ?? "" });
+            }
+            else
+            {
+                Console.WriteLine($"[TestAPI] ExecuteScriptAsync delegate not available");
+                res.StatusCode = (int)HttpStatusCode.InternalServerError;
+                await WriteJsonAsync(res, new { error = "ExecuteScriptAsync delegate not available" });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TestAPI] Exception: {ex.Message}");
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "Script execution error", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// テスト自動化用：チャット履歴を取得
+    /// </summary>
+    async Task HandleGetChatHistoryAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        try
+        {
+            if (GetChatHistoryAsync != null)
+            {
+                var history = await GetChatHistoryAsync();
+                res.StatusCode = (int)HttpStatusCode.OK;
+                res.ContentType = "application/json; charset=utf-8";
+                await WriteJsonAsync(res, new { history = history ?? "" });
+            }
+            else
+            {
+                res.StatusCode = (int)HttpStatusCode.InternalServerError;
+                await WriteJsonAsync(res, new { error = "GetChatHistoryAsync delegate not available" });
+            }
+        }
+        catch (Exception ex)
+        {
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "Chat history fetch error", detail = ex.Message });
         }
     }
 
@@ -317,27 +472,13 @@ public class SimpleApiServer : IDisposable
             if (mcpEnabled)
             {
                 mcpTools = await _mcpManager.GetOpenAiToolsAsync();
+                DebugLogger.Mcp($"Injected {mcpTools.Count} tools for API request");
                 Console.WriteLine($"[MCP] Injected {mcpTools.Count} tools");
             }
 
             if (streaming)
             {
-                bool success = await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools);
-                if (!success && mcpTools != null)
-                {
-                    // ツールなしで再試行
-                    DebugLogger.Api("Retrying streaming request without tools...");
-                    
-                    // UI 側に通知を送る
-                    try {
-                        var info = new { info = "使用中のモデルがツール実行に対応していないため、ツールなしで回答を生成します。" };
-                        byte[] infoChunk = Encoding.UTF8.GetBytes($"data: {JsonSerializer.Serialize(info)}\n\n");
-                        await res.OutputStream.WriteAsync(infoChunk, 0, infoChunk.Length);
-                        await res.OutputStream.FlushAsync();
-                    } catch { }
-
-                    await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, null);
-                }
+                await HandleStreamingAsync(res, apiType, apiEndpoint, apiKey, model, messagesElement, endpointPreset, azureDeployment, mcpTools);
                 
                 // 最後に [DONE] を送って閉じる
                 try {
@@ -392,13 +533,16 @@ public class SimpleApiServer : IDisposable
             using StreamReader errorReader = new(errorStream);
             string errorJson = await errorReader.ReadToEndAsync();
 
+            DebugLogger.Error($"HTTP Error: {errorResponse.StatusCode} - {errorJson}");
             res.StatusCode = (int)errorResponse.StatusCode;
             await WriteJsonAsync(res, new { error = $"API エラー：{errorResponse.StatusCode}", detail = errorJson });
         }
         catch (Exception ex)
         {
+            DebugLogger.Error($"Internal Server Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
+            Console.WriteLine($"[API Error] {ex}");
             res.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await WriteJsonAsync(res, new { error = "内部サーバーエラー", detail = ex.Message });
+            await WriteJsonAsync(res, new { error = "内部サーバーエラー", detail = ex.Message, stackTrace = ex.StackTrace });
         }
     }
 
@@ -414,30 +558,52 @@ public class SimpleApiServer : IDisposable
 
             DebugLogger.Api($"Streaming to: {endpoint}");
 
-            object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
+            // messagesElement を FrontendChatMessage のリストにデシリアライズ
+            List<FrontendChatMessage>? frontendMessages = JsonSerializer.Deserialize<List<FrontendChatMessage>>(messagesElement);
+
+            // AI API に送るメッセージリストを構築 (id などの不要なプロパティを除去)
+            List<OpenAIChatMessage> apiMessages = new();
+            if (frontendMessages != null)
+            {
+                foreach (var msg in frontendMessages)
+                {
+                    // ロールが空のメッセージはスキップ
+                    if (string.IsNullOrEmpty(msg.Role))
+                    {
+                        DebugLogger.Api($"Skipping message with empty role: {JsonSerializer.Serialize(msg)}");
+                        continue; 
+                    }
+
+                    // tool ロールのメッセージはツール呼び出し結果であり、APIには送らない
+                    if (msg.Role == "tool") continue;
+
+                    // system ロールのメッセージは Anthropic 以外では content が空のケースがあるので注意
+                    // ここではシンプルに role と content のみを持つメッセージを作成
+                    apiMessages.Add(new OpenAIChatMessage { Role = msg.Role, Content = msg.Content });
+                }
+            }
+
 
             object requestPayload;
+            // Ollama や Gemini など、tools パラメータを直接サポートしないエンドポイントでは tools を送らない
+            List<object>? toolsToSend = (tools != null && tools.Count > 0 && endpointPreset != "ollama" && endpointPreset != "gemini") ? tools : null;
+
             if (apiType == "anthropic")
             {
-                List<object> anthropicMessages = new List<object>();
+                List<OpenAIChatMessage> anthropicMessages = new List<OpenAIChatMessage>();
                 string? systemMessage = null;
 
-                if (messages != null)
+                if (apiMessages != null) // apiMessages から構築
                 {
-                    foreach (object msg in messages)
+                    foreach (var msg in apiMessages)
                     {
-                        JsonElement elem = JsonSerializer.SerializeToElement(msg);
-                        if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
+                        if (msg.Role == "system")
                         {
-                            string role = roleElem.GetString() ?? "";
-                            if (role == "system")
-                            {
-                                systemMessage = contentElem.GetString();
-                            }
-                            else
-                            {
-                                anthropicMessages.Add(new { role = role, content = contentElem.GetString() ?? "" });
-                            }
+                            systemMessage = msg.Content;
+                        }
+                        else
+                        {
+                            anthropicMessages.Add(new OpenAIChatMessage { Role = msg.Role, Content = msg.Content });
                         }
                     }
                 }
@@ -449,7 +615,7 @@ public class SimpleApiServer : IDisposable
                     messages = anthropicMessages,
                     system = systemMessage,
                     stream = true,
-                    tools = (tools != null && tools.Count > 0) ? tools : null
+                    tools = toolsToSend
                 };
             }
             else
@@ -457,9 +623,9 @@ public class SimpleApiServer : IDisposable
                 requestPayload = new
                 {
                     model,
-                    messages,
+                    messages = apiMessages, // apiMessages を使用
                     stream = true,
-                    tools = (tools != null && tools.Count > 0) ? tools : null
+                    tools = toolsToSend
                 };
             }
 
@@ -489,15 +655,10 @@ public class SimpleApiServer : IDisposable
             {
                 string errorBody = await httpResponse.Content.ReadAsStringAsync();
                 DebugLogger.Api($"Streaming HTTP error: {httpResponse.StatusCode} - {errorBody}");
-                
-                // ツール非対応エラーの場合は呼び出し元に通知してリトライさせる
-                if (tools != null && (errorBody.Contains("does not support tools") || errorBody.Contains("Unrecognized parameter: 'tools'")))
-                {
-                    DebugLogger.Api("Model does not support tools. Signalling retry without tools.");
-                    return false;
-                }
+                // ツール非対応エラーのリトライロジックを削除
+                // 現在は toolsToSend で制御するため、ここでは一般的なエラーとして扱う
+                httpResponse.EnsureSuccessStatusCode(); // エラーをここで投げる
             }
-            httpResponse.EnsureSuccessStatusCode();
 
             // 成功してからレスポンスヘッダーを書き込む
             res.StatusCode = (int)HttpStatusCode.OK;
@@ -530,7 +691,8 @@ public class SimpleApiServer : IDisposable
         {
             DebugLogger.Api($"[Streaming Error] {ex.Message}");
             Console.WriteLine($"[Streaming Error] {ex.Message}");
-            return false; // エラー時もリトライの可能性を考慮して false を返す
+            // エラーを適切に処理するため、ここでは例外を再スロー
+            throw; 
         }
     }
 
@@ -542,11 +704,35 @@ public class SimpleApiServer : IDisposable
             endpoint = endpoint.Replace("{deployment}", azureDeployment);
         }
 
+        // messagesElement を FrontendChatMessage のリストにデシリアライズ
+        List<FrontendChatMessage>? frontendMessages = JsonSerializer.Deserialize<List<FrontendChatMessage>>(messagesElement);
+
+        // AI API に送るメッセージリストを構築 (id などの不要なプロパティを除去)
+        List<OpenAIChatMessage> apiMessages = new();
+        if (frontendMessages != null)
+        {
+            foreach (var msg in frontendMessages)
+            {
+                // ロールが空のメッセージはスキップ
+                if (string.IsNullOrEmpty(msg.Role))
+                {
+                    DebugLogger.Api($"Skipping message with empty role: {JsonSerializer.Serialize(msg)}");
+                    continue; 
+                }
+
+                if (msg.Role == "tool") continue;
+                apiMessages.Add(new OpenAIChatMessage { Role = msg.Role, Content = msg.Content });
+            }
+        }
+
+        // Ollama や Gemini など、tools パラメータを直接サポートしないエンドポイントでは tools を送らない
+        List<object>? toolsToSend = (tools != null && tools.Count > 0 && endpointPreset != "ollama" && endpointPreset != "gemini") ? tools : null;
+
         var requestPayload = new
         {
             model,
-            messages = JsonSerializer.Deserialize<object[]>(messagesElement),
-            tools = (tools != null && tools.Count > 0) ? tools : null
+            messages = apiMessages, // apiMessages を使用
+            tools = toolsToSend // ToolsToSend を使用
         };
 
         string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
@@ -569,27 +755,45 @@ public class SimpleApiServer : IDisposable
         if (!httpResponse.IsSuccessStatusCode)
         {
             DebugLogger.Api($"HTTP Error: {httpResponse.StatusCode} - {responseJson}");
-            // ツール非対応エラーの場合はメッセージに含めて投げる
-            if (tools != null && (responseJson.Contains("does not support tools") || responseJson.Contains("Unrecognized parameter: 'tools'")))
-            {
-                throw new HttpRequestException($"Model does not support tools: {responseJson}");
-            }
+            // ツール非対応エラーのリトライロジックを削除
+            // 現在は toolsToSend で制御するため、ここでは一般的なエラーとして扱う
+            httpResponse.EnsureSuccessStatusCode(); // エラーをここで投げる
         }
 
-        httpResponse.EnsureSuccessStatusCode();
         return responseJson;
     }
 
     async Task<string> HandleResponsesApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement, string endpointPreset, string azureDeployment)
     {
-        object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
-        List<object> inputMessages = new();
-        if (messages != null)
+        // messagesElement を FrontendChatMessage のリストにデシリアialize
+        List<FrontendChatMessage>? frontendMessages = JsonSerializer.Deserialize<List<FrontendChatMessage>>(messagesElement);
+
+        // AI API に送るメッセージリストを構築 (id などの不要なプロパティを除去)
+        List<OpenAIChatMessage> apiMessages = new();
+        if (frontendMessages != null)
         {
-            foreach (object msg in messages)
+            foreach (var msg in frontendMessages)
             {
-                JsonElement msgDict = JsonSerializer.SerializeToElement(msg);
-                inputMessages.Add(msgDict);
+                // ロールが空のメッセージはスキップ
+                if (string.IsNullOrEmpty(msg.Role))
+                {
+                    DebugLogger.Api($"Skipping message with empty role: {JsonSerializer.Serialize(msg)}");
+                    continue; 
+                }
+
+                if (msg.Role == "tool") continue;
+                apiMessages.Add(new OpenAIChatMessage { Role = msg.Role, Content = msg.Content });
+            }
+        }
+
+        List<object> inputMessages = new();
+        if (apiMessages != null) // apiMessages から構築
+        {
+            foreach (var msg in apiMessages)
+            {
+                 // Responses API は特定のフォーマットを期待する可能性があるので、
+                 // ここではシンプルに role と content のみを持つメッセージを作成
+                inputMessages.Add(new { role = msg.Role, content = msg.Content });
             }
         }
 
@@ -617,26 +821,41 @@ public class SimpleApiServer : IDisposable
 
     async Task<string> HandleAnthropicApiAsync(string apiEndpoint, string apiKey, string model, JsonElement messagesElement)
     {
-        object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
-        List<object> anthropicMessages = new();
+        // messagesElement を FrontendChatMessage のリストにデシリアライズ
+        List<FrontendChatMessage>? frontendMessages = JsonSerializer.Deserialize<List<FrontendChatMessage>>(messagesElement);
+
+        // AI API に送るメッセージリストを構築 (id などの不要なプロパティを除去)
+        List<OpenAIChatMessage> apiMessages = new();
+        if (frontendMessages != null)
+        {
+            foreach (var msg in frontendMessages)
+            {
+                // ロールが空のメッセージはスキップ
+                if (string.IsNullOrEmpty(msg.Role))
+                {
+                    DebugLogger.Api($"Skipping message with empty role: {JsonSerializer.Serialize(msg)}");
+                    continue; 
+                }
+
+                if (msg.Role == "tool") continue;
+                apiMessages.Add(new OpenAIChatMessage { Role = msg.Role, Content = msg.Content });
+            }
+        }
+
+        List<OpenAIChatMessage> anthropicMessages = new();
         string? systemMessage = null;
 
-        if (messages != null)
+        if (apiMessages != null) // apiMessages から構築
         {
-            foreach (object msg in messages)
+            foreach (var msg in apiMessages)
             {
-                JsonElement elem = JsonSerializer.SerializeToElement(msg);
-                if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
+                if (msg.Role == "system")
                 {
-                    string role = roleElem.GetString() ?? "";
-                    if (role == "system")
-                    {
-                        systemMessage = contentElem.GetString();
-                    }
-                    else
-                    {
-                        anthropicMessages.Add(new { role = role, content = contentElem.GetString() ?? "" });
-                    }
+                    systemMessage = msg.Content;
+                }
+                else
+                {
+                    anthropicMessages.Add(new OpenAIChatMessage { Role = msg.Role, Content = msg.Content });
                 }
             }
         }
@@ -670,21 +889,35 @@ public class SimpleApiServer : IDisposable
             endpoint += (endpoint.Contains("?") ? "&" : "?") + "key=" + apiKey;
         }
 
-        object[]? messages = JsonSerializer.Deserialize<object[]>(messagesElement);
+        // messagesElement を FrontendChatMessage のリストにデシリアライズ
+        List<FrontendChatMessage>? frontendMessages = JsonSerializer.Deserialize<List<FrontendChatMessage>>(messagesElement);
+
+        // AI API に送るメッセージリストを構築 (id などの不要なプロパティを除去)
+        List<OpenAIChatMessage> apiMessages = new();
+        if (frontendMessages != null)
+        {
+            foreach (var msg in frontendMessages)
+            {
+                // ロールが空のメッセージはスキップ
+                if (string.IsNullOrEmpty(msg.Role))
+                {
+                    DebugLogger.Api($"Skipping message with empty role: {JsonSerializer.Serialize(msg)}");
+                    continue; 
+                }
+
+                if (msg.Role == "tool") continue;
+                apiMessages.Add(new OpenAIChatMessage { Role = msg.Role, Content = msg.Content });
+            }
+        }
+
         List<object> contents = new();
 
-        if (messages != null)
+        if (apiMessages != null) // apiMessages から構築
         {
-            foreach (object msg in messages)
+            foreach (var msg in apiMessages)
             {
-                JsonElement elem = JsonSerializer.SerializeToElement(msg);
-                if (elem.TryGetProperty("role", out JsonElement roleElem) && elem.TryGetProperty("content", out JsonElement contentElem))
-                {
-                    string role = roleElem.GetString() ?? "";
-                    string content = contentElem.GetString() ?? "";
-                    string geminiRole = (role == "assistant") ? "model" : "user";
-                    contents.Add(new { role = geminiRole, parts = new[] { new { text = content } } });
-                }
+                string geminiRole = (msg.Role == "assistant") ? "model" : "user";
+                contents.Add(new { role = geminiRole, parts = new[] { new { text = msg.Content } } });
             }
         }
 

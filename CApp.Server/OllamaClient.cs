@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace CApp;
+namespace CApp.Server;
 
 /// <summary>
 /// Ollama API クライアント

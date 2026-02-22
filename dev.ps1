@@ -1,11 +1,11 @@
-$csproj = ".\CApp\CApp.csproj"
+$csproj = ".\CApp.UI\CApp.UI.csproj"
 $appName = "CApp"
 $publisher = "ひかり"
 $execFile = "CApp.exe"
 $version = (Get-Date).ToString("yy.M.d")
 $date = (Get-Date).ToString("yyyyMMdd")
-$publishDir = "CApp\publish"
-$muiIcon = "CApp\Assets\App.ico"
+$publishDir = "CApp.UI\publish"
+$muiIcon = "CApp.UI\Assets\App.ico"
 
 $startMenuPath = [Environment]::GetFolderPath("Programs")
 

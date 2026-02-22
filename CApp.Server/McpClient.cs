@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace CApp;
+namespace CApp.Server;
 
 public class McpClient : IDisposable
 {
@@ -29,6 +29,8 @@ public class McpClient : IDisposable
 
     public async Task StartAsync()
     {
+        DebugLogger.Mcp($"[{_name}] Starting process: {_config.Command} {string.Join(" ", _config.Args)}");
+        
         ProcessStartInfo psi = new()
         {
             FileName = _config.Command,
@@ -55,11 +57,14 @@ public class McpClient : IDisposable
 
         _process = Process.Start(psi);
         if (_process == null) throw new Exception($"Failed to start MCP server: {_name}");
+        
+        DebugLogger.Mcp($"[{_name}] Process started, PID: {_process.Id}");
 
         _ = Task.Run(ListenOutputAsync);
         _ = Task.Run(ListenErrorAsync);
 
         // Initialize MCP
+        DebugLogger.Mcp($"[{_name}] Initializing MCP protocol...");
         await SendRequestAsync("initialize", new
         {
             protocolVersion = "2024-11-05",
@@ -67,7 +72,9 @@ public class McpClient : IDisposable
             clientInfo = new { name = "CApp", version = "1.0.0" }
         });
 
+        DebugLogger.Mcp($"[{_name}] Sending initialized notification...");
         await SendNotificationAsync("notifications/initialized", new { });
+        DebugLogger.Mcp($"[{_name}] MCP server initialized successfully");
     }
 
     private async Task ListenOutputAsync()
@@ -116,8 +123,10 @@ public class McpClient : IDisposable
         {
             var line = await reader.ReadLineAsync();
             if (line == null) break;
-            Debug.WriteLine($"[MCP:{_name} ERR] {line}");
+            DebugLogger.Mcp($"[{_name} ERR] {line}");
+            Console.WriteLine($"[MCP:{_name} ERR] {line}");
         }
+        DebugLogger.Mcp($"[{_name}] Process exited, ExitCode: {_process.ExitCode}");
     }
 
     public async Task<JsonElement> SendRequestAsync(string method, object @params)

@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
-    outDir: '../CApp/Assets/EditorUI', // Output to the specified directory
+    outDir: '../CApp.UI/Assets/EditorUI', // Output to the specified directory
     emptyOutDir: true, // Clear the directory before building
     rollupOptions: {
       input: {

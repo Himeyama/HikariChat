@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace CApp;
+namespace CApp.Server;
 
 public class McpManager : IDisposable
 {
@@ -15,12 +15,14 @@ public class McpManager : IDisposable
 
     public async Task UpdateSettingsAsync(ApiSettings settings)
     {
+        DebugLogger.Mcp($"UpdateSettingsAsync called. McpEnabled={settings.McpEnabled}, ServerCount={settings.McpServers.Count}");
         _settings = settings;
 
         // 削除されたサーバーを停止
         var removed = _clients.Keys.Except(settings.McpServers.Keys).ToList();
         foreach (var name in removed)
         {
+            DebugLogger.Mcp($"Stopping removed MCP server: {name}");
             _clients[name].Dispose();
             _clients.Remove(name);
         }
@@ -28,18 +30,22 @@ public class McpManager : IDisposable
         // 有効なサーバーのみ起動
         if (settings.McpEnabled)
         {
+            DebugLogger.Mcp($"MCP is enabled. Starting {settings.McpServers.Count} server(s)...");
             foreach (var kv in settings.McpServers)
             {
                 if (!_clients.ContainsKey(kv.Key))
                 {
                     try
                     {
+                        DebugLogger.Mcp($"Starting MCP server: {kv.Key} (Command: {kv.Value.Command}, Args: {string.Join(" ", kv.Value.Args)})");
                         var client = new McpClient(kv.Key, kv.Value);
                         await client.StartAsync();
                         _clients[kv.Key] = client;
+                        DebugLogger.Mcp($"MCP server started: {kv.Key}");
                     }
                     catch (Exception ex)
                     {
+                        DebugLogger.Error($"Failed to start MCP server {kv.Key}: {ex.Message}\nStackTrace: {ex.StackTrace}");
                         Console.WriteLine($"[McpManager] Failed to start server {kv.Key}: {ex.Message}");
                     }
                 }
@@ -47,6 +53,7 @@ public class McpManager : IDisposable
         }
         else
         {
+            DebugLogger.Mcp("MCP is disabled. Stopping all servers.");
             // MCP 無効時は全サーバー停止
             StopAll();
         }

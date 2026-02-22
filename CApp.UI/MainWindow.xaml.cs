@@ -18,11 +18,11 @@ namespace CApp;
 public sealed partial class MainWindow : Window
 {
     OverlappedPresenter? presenter;
-    OllamaClient? _ollamaClient;
+    CApp.Server.OllamaClient? _ollamaClient;
 
     public string ServerUri { get; set; } = "";
 
-    public ApiSettings CurrentApiSettings { get; private set; }
+    public CApp.Server.ApiSettings CurrentApiSettings { get; private set; }
 
     /// <summary>
     /// Ollama が利用可能か
@@ -38,7 +38,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        CurrentApiSettings = new ApiSettings(); // Initialize to prevent CS8618 warning
+        CurrentApiSettings = new CApp.Server.ApiSettings(); // Initialize to prevent CS8618 warning
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
@@ -52,7 +52,7 @@ public sealed partial class MainWindow : Window
 
     async void InitializeCurrentApiSettings()
     {
-        var loadedSettings = await ApiSettingsManager.LoadAsync();
+        var loadedSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
         if (loadedSettings != null)
         {
             CurrentApiSettings = loadedSettings; // Update with loaded settings
@@ -70,7 +70,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            _ollamaClient = new OllamaClient();
+            _ollamaClient = new CApp.Server.OllamaClient();
             IsOllamaAvailable = await _ollamaClient.IsAvailableAsync();
             if (IsOllamaAvailable)
             {
@@ -191,6 +191,38 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// WebView2 で JavaScript を実行する（テスト自動化用）
+    /// </summary>
+    public async Task<string> ExecuteScriptAsync(string script)
+    {
+        try
+        {
+            if (Preview.CoreWebView2 == null)
+            {
+                LogInfo("ExecuteScriptAsync: CoreWebView2 is null");
+                return string.Empty;
+            }
+            
+            var result = await Preview.CoreWebView2.ExecuteScriptAsync(script);
+            LogInfo($"ExecuteScriptAsync result: {result ?? "(null)"}");
+            return result ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            LogInfo($"ExecuteScriptAsync error: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// テスト自動化：現在のチャット履歴を取得
+    /// </summary>
+    public async Task<string?> GetChatHistoryAsync()
+    {
+        return await ExecuteScriptAsync("JSON.stringify(window.chrome.webview.targetEnvironment?.tabs || {})");
+    }
+
     void InitializeWindowPresenter()
     {
         nint hwnd = WindowNative.GetWindowHandle(this);
@@ -268,7 +300,7 @@ public sealed partial class MainWindow : Window
     public async void NotifySettingsUpdated()
     {
         LogInfo("NotifySettingsUpdated called. Reloading settings and updating WebView2.");
-        CurrentApiSettings = await ApiSettingsManager.LoadAsync();
+        CurrentApiSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
         SendCurrentSettingsToWebView();
     }
 

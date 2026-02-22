@@ -148,11 +148,11 @@ public sealed partial class SettingsWindow : Window
         {
             LogInfo($"SaveSettingsToJsonAsync called");
 
-            var settings = JsonSerializer.Deserialize<ApiSettings>(settingsJson);
+            var settings = JsonSerializer.Deserialize<CApp.Server.ApiSettings>(settingsJson);
 
             if (settings != null)
             {
-                await ApiSettingsManager.SaveAsync(settings);
+                await CApp.Server.ApiSettingsManager.SaveAsync(settings);
                 LogInfo($"Settings saved to file");
 
                 // API サーバーに設定を通知して MCP サーバーを更新
