@@ -303,8 +303,9 @@ function App() {
     // Send message to chat API
     const result = await callChatApi(localMessages);
 
-    // Add assistant message to local messages (UI is updated via streaming callback)
+    // Add assistant message to UI and local messages
     if (result.content || result.toolCalls.length > 0) {
+      addMessage(result.content, "assistant");
       localMessages.push({ role: "assistant", content: result.content });
     }
 
