@@ -3,6 +3,7 @@ import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
 import hljs from 'highlight.js';
+import { sendChatMessage, processToolCalls, buildMessagesForNextRequest, type ToolCall } from './chatUtils';
 
 // Create a new Marked instance and configure it
 const customMarked = new Marked();
@@ -81,14 +82,19 @@ function loadSettings(): Settings {
 
 
 function App() {
-  const chatMessagesRef = useRef<HTMLDivElement>(null); // Added this line
-
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const activeTabIdRef = useRef<string>('tab-chat-1');
   const [tabCounter, setTabCounter] = useState(1);
   const [tabs, setTabs] = useState<Record<string, ChatTab>>({
     'tab-chat-1': { conversationHistory: [], isLoading: false },
   });
   const [activeTabId, setActiveTabId] = useState('tab-chat-1');
   const [currentSettings, setCurrentSettings] = useState<Settings>(loadSettings());
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
   const [chatInput, setChatInput] = useState('');
   const [modelDisplayName, setModelDisplayName] = useState('');
   const [mcpStatus, setMcpStatus] = useState('MCP: 無効');
@@ -187,9 +193,12 @@ function App() {
     webview.postMessage('{ "method": "tools/call", "params": {"name": "openSettings", "arguments": {} } }');
   };
 
-  const addMessage = (content: string, role: ChatMessage['role']) => {
+  const addMessage = (content: string, role: ChatMessage['role'], toolName?: string, toolCallId?: string) => {
     setTabs(prevTabs => {
-      const updatedHistory = [...prevTabs[activeTabId].conversationHistory, { role, content }];
+      const message: ChatMessage = { role, content };
+      if (toolName) message.name = toolName;
+      if (toolCallId) message.tool_call_id = toolCallId;
+      const updatedHistory = [...prevTabs[activeTabId].conversationHistory, message];
       return {
         ...prevTabs,
         [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: updatedHistory }
@@ -197,34 +206,132 @@ function App() {
     });
   };
 
-  const updateAssistantMessage = (index: number, content: string) => {
-    setTabs(prevTabs => {
-      const updatedHistory = [...prevTabs[activeTabId].conversationHistory];
-      if (updatedHistory[index]) {
-        updatedHistory[index] = { ...updatedHistory[index], content };
-      }
-      return {
-        ...prevTabs,
-        [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: updatedHistory }
-      };
-    });
-  };
+  /**
+   * Send message to chat API
+   */
+  const callChatApi = async (messages: ChatMessage[]): Promise<{ content: string; toolCalls: ToolCall[] }> => {
+    const useStreaming = currentSettings.streaming;
+    let accumulatedContent = '';
 
-  const executeMcpTool = async (name: string, args: any) => {
-    try {
-      const response = await fetch("/api/mcp/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, arguments: args })
+    return new Promise((resolve, reject) => {
+      sendChatMessage(messages, {
+        apiKey: currentSettings.apiKey,
+        apiEndpoint: currentSettings.apiEndpoint,
+        model: currentSettings.model,
+        apiType: currentSettings.apiType,
+        endpointPreset: currentSettings.endpointPreset,
+        azureDeployment: currentSettings.azureDeployment,
+        streaming: useStreaming,
+        mcpEnabled: currentSettings.mcpEnabled
+      }, {
+        onContent: (content: string) => {
+          accumulatedContent += content;
+          // ストリーミング中に UI を更新
+          setTabs(prevTabs => {
+            const currentTabId = activeTabIdRef.current;
+            const history = [...prevTabs[currentTabId].conversationHistory];
+            // アシスタントメッセージが存在しない場合は追加
+            if (history.length === 0 || history[history.length - 1].role !== 'assistant') {
+              history.push({
+                role: 'assistant',
+                content: accumulatedContent
+              });
+            } else {
+              // 最後のメッセージを更新
+              history[history.length - 1] = {
+                role: 'assistant',
+                content: accumulatedContent
+              };
+            }
+            return {
+              ...prevTabs,
+              [currentTabId]: { ...prevTabs[currentTabId], conversationHistory: history }
+            };
+          });
+        },
+        onComplete: (result) => {
+          resolve(result);
+        },
+        onError: (error) => {
+          reject(error);
+        }
       });
-      if (!response.ok) {
-        const error = await response.json();
-        return { error: error.error || "Execution failed" };
+    });
+  };
+
+  /**
+   * Execute tool calls and return results
+   */
+  const executeTools = async (
+    toolCalls: ToolCall[],
+    executedToolCallIds: Set<string>
+  ): Promise<Array<{ name: string; content: string; toolCallId: string }>> => {
+    const toolResults: Array<{ name: string; content: string; toolCallId: string }> = [];
+
+    await processToolCalls(
+      toolCalls,
+      executedToolCallIds,
+      (name, _args, toolResult) => {
+        const resultString = JSON.stringify(toolResult);
+        addMessage(resultString, "tool", name);
+        toolResults.push({
+          name,
+          content: resultString,
+          toolCallId: executedToolCallIds.size.toString()
+        });
       }
-      return await response.json();
-    } catch (e: any) {
-      return { error: e.message };
+    );
+
+    return toolResults;
+  };
+
+  /**
+   * Recursive function to handle chat with tool calls
+   */
+  const processChatRecursive = async (
+    localMessages: ChatMessage[],
+    executedToolCallIds: Set<string>,
+    iterationCount: number,
+    maxIterations: number
+  ): Promise<void> => {
+    // Base case: max iterations reached
+    if (iterationCount >= maxIterations) {
+      console.log("Max iterations reached");
+      return;
     }
+
+    // Send message to chat API
+    const result = await callChatApi(localMessages);
+
+    // Add assistant message to local messages (UI is updated via streaming callback)
+    if (result.content || result.toolCalls.length > 0) {
+      localMessages.push({ role: "assistant", content: result.content });
+    }
+
+    // If no tool calls, we're done
+    if (result.toolCalls.length === 0) {
+      return;
+    }
+
+    // Execute tools
+    const toolResults = await executeTools(result.toolCalls, executedToolCallIds);
+
+    // If no new tools were executed, stop
+    if (toolResults.length === 0) {
+      console.log("No new tools executed, stopping");
+      return;
+    }
+
+    // Build messages for next request with tool results
+    const nextMessages = buildMessagesForNextRequest(
+      localMessages,
+      result.content,
+      result.toolCalls,
+      toolResults
+    );
+
+    // Recursive call for next iteration
+    await processChatRecursive(nextMessages, executedToolCallIds, iterationCount + 1, maxIterations);
   };
 
   const sendMessage = async () => {
@@ -242,206 +349,19 @@ function App() {
     }));
 
     const messageToSend = chatInput.trim();
+    const userMessage: ChatMessage = { role: "user", content: messageToSend };
+
+    // Add user message to both UI and local messages
     addMessage(messageToSend, "user");
+    const localMessages: ChatMessage[] = [userMessage];
     setChatInput('');
 
-    let conversationHistory = [...activeTab.conversationHistory, { role: "user", content: messageToSend }];
-
     try {
-      let continueLoop = true;
-      let currentAssistantMessageIndex: number | null = null; // To update streaming assistant messages
+      const executedToolCallIds = new Set<string>();
+      const MAX_ITERATIONS = 5;
 
-      while (continueLoop) {
-        continueLoop = false;
-        let assistantContent = "";
-        let toolCalls: any[] = [];
-
-        if (currentSettings.streaming) {
-          const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: conversationHistory,
-              apiKey: currentSettings.apiKey,
-              apiEndpoint: currentSettings.apiEndpoint,
-              model: currentSettings.model,
-              apiType: currentSettings.apiType,
-              endpointPreset: currentSettings.endpointPreset,
-              azureDeployment: currentSettings.azureDeployment,
-              streaming: true,
-              mcpEnabled: currentSettings.mcpEnabled
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "API エラーが発生しました");
-          }
-
-          const reader = response.body!.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          // Add a placeholder for the assistant's streaming response
-          setTabs(prevTabs => {
-            const history = [...prevTabs[activeTabId].conversationHistory, { role: 'assistant', content: '' } as ChatMessage];
-            currentAssistantMessageIndex = history.length - 1;
-            return {
-              ...prevTabs,
-              [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: history }
-            };
-          });
-
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.substring(6);
-                if (data === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(data);
-
-                  if (parsed.info) {
-                    addMessage(parsed.info, "system");
-                    assistantContent = ""; // Reset assistant content for next part
-                    // Create new placeholder for subsequent assistant message
-                    setTabs(prevTabs => {
-                      const history = [...prevTabs[activeTabId].conversationHistory, { role: 'assistant', content: '' } as ChatMessage];
-                      currentAssistantMessageIndex = history.length - 1;
-                      return {
-                        ...prevTabs,
-                        [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: history }
-                      };
-                    });
-                    continue;
-                  }
-
-                  const delta = parsed.choices?.[0]?.delta;
-
-                  if (delta) {
-                    if (delta.content && currentAssistantMessageIndex !== null) {
-                      assistantContent += delta.content;
-                      updateAssistantMessage(currentAssistantMessageIndex, assistantContent);
-                    }
-
-                    if (delta.tool_calls) {
-                      for (const tc of delta.tool_calls) {
-                        if (!toolCalls[tc.index]) {
-                          toolCalls[tc.index] = { id: tc.id, name: "", arguments: "" };
-                        }
-                        if (tc.function?.name) toolCalls[tc.index].name += tc.function.name;
-                        if (tc.function?.arguments) toolCalls[tc.index].arguments += tc.function.arguments;
-                      }
-                    }
-                  }
-                } catch (e) {
-                  console.error("Error parsing streaming data:", e);
-                }
-              }
-            }
-          }
-        } else {
-          // Non-streaming
-          const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: conversationHistory,
-              apiKey: currentSettings.apiKey,
-              apiEndpoint: currentSettings.apiEndpoint,
-              model: currentSettings.model,
-              apiType: currentSettings.apiType,
-              endpointPreset: currentSettings.endpointPreset,
-              azureDeployment: currentSettings.azureDeployment,
-              streaming: false,
-              mcpEnabled: currentSettings.mcpEnabled
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "API エラーが発生しました");
-          }
-
-          const data = await response.json();
-          const message = data.choices?.[0]?.message;
-          if (message) {
-            assistantContent = message.content || "";
-            if (message.tool_calls) {
-              toolCalls = message.tool_calls.map((tc: any) => ({
-                id: tc.id,
-                name: tc.function.name,
-                arguments: tc.function.arguments
-              }));
-            }
-            if (assistantContent) {
-              addMessage(assistantContent, "assistant");
-            }
-          }
-        }
-
-        // Add assistant message to history if it's not a streaming update
-        if (currentSettings.streaming && currentAssistantMessageIndex !== null) {
-          conversationHistory[currentAssistantMessageIndex] = { role: 'assistant', content: assistantContent };
-        } else if (!currentSettings.streaming && assistantContent) {
-            // Already added in non-streaming branch, but need to update conversationHistory
-            conversationHistory.push({ role: 'assistant', content: assistantContent });
-        }
-
-
-        const assistantMsg: ChatMessage & { tool_calls?: any[] } = { role: "assistant", content: assistantContent };
-        if (toolCalls.length > 0) {
-          assistantMsg.tool_calls = toolCalls.map(tc => ({
-            id: tc.id,
-            type: "function",
-            function: { name: tc.name, arguments: tc.arguments }
-          }));
-        }
-        conversationHistory = [...conversationHistory, assistantMsg];
-
-
-        // Tool execution
-        if (toolCalls.length > 0) {
-          // If streaming, ensure last message is updated for tool execution
-          if (currentSettings.streaming && currentAssistantMessageIndex !== null) {
-            updateAssistantMessage(currentAssistantMessageIndex, `${assistantContent}\n\n> ツール実行中...`);
-          } else {
-            addMessage(`${assistantContent}\n\n> ツール実行中...`, "assistant");
-            currentAssistantMessageIndex = conversationHistory.length -1
-          }
-
-
-          for (const tc of toolCalls.filter(Boolean)) { // Filter out any null/undefined entries
-            let args = {};
-            try { args = JSON.parse(tc.arguments); } catch (e) { console.error("Error parsing tool arguments:", e); }
-
-            const result = await executeMcpTool(tc.name, args);
-            const resultString = JSON.stringify(result);
-
-            const toolMessage = {
-              role: "tool" as const,
-              tool_call_id: tc.id,
-              name: tc.name,
-              content: resultString
-            };
-            conversationHistory.push(toolMessage);
-            
-            // Update the last assistant message with tool execution status
-            if (currentAssistantMessageIndex !== null) {
-                updateAssistantMessage(currentAssistantMessageIndex, `${assistantContent}\n\n> ツール \`${tc.name}\` の実行が完了しました。`);
-            }
-          }
-          continueLoop = true; // Call AI again after tool execution
-        }
-      }
+      // Start recursive chat processing
+      await processChatRecursive(localMessages, executedToolCallIds, 0, MAX_ITERATIONS);
     } catch (error: any) {
       addMessage(error.message, "error");
       console.error("Chat error:", error);
