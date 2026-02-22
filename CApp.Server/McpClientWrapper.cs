@@ -61,6 +61,8 @@ public class McpClientWrapper : IDisposable
 
     public async Task ConnectAsync()
     {
+        Console.WriteLine($"[{_name}] Starting process: {_options.Command} {string.Join(" ", _options.Args)}");
+        
         var transportOptions = new StdioClientTransportOptions
         {
             Name = _name,
@@ -77,7 +79,9 @@ public class McpClientWrapper : IDisposable
         }
 
         var transport = new StdioClientTransport(transportOptions);
+        Console.WriteLine($"[{_name}] Creating MCP client transport...");
         _client = await McpClient.CreateAsync(transport, cancellationToken: _cts.Token);
+        Console.WriteLine($"[{_name}] MCP client created successfully");
     }
 
     public async Task<List<McpToolDefinition>> ListToolsAsync()
