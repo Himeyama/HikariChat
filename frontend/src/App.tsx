@@ -3,7 +3,7 @@ import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
 import hljs from 'highlight.js';
-import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, convertToOpenAITools, type ToolCall } from './chatUtils';
+import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, type ToolCall, convertToOpenAITools } from './chatUtils';
 
 // Create a new Marked instance and configure it
 const customMarked = new Marked();

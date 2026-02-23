@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 
 namespace CApp.Server;
 
@@ -23,7 +25,7 @@ public class SimpleApiServer : IDisposable
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly McpManager? _mcpManager;
+    readonly McpManager? _mcpManager;
 
 #pragma warning disable CS8618
     public SimpleApiServer(string prefix, McpManager? mcpManager = null)
@@ -214,11 +216,16 @@ public class SimpleApiServer : IDisposable
     {
         try
         {
+            if (_mcpManager == null)
+            {
+                res.StatusCode = (int)HttpStatusCode.InternalServerError;
+                await WriteJsonAsync(res, new { error = "MCP manager not initialized" });
+                return;
+            }
+
             string requestBody;
             using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
-            {
                 requestBody = await reader.ReadToEndAsync();
-            }
 
             using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
             JsonElement root = jsonDoc.RootElement;
@@ -231,45 +238,48 @@ public class SimpleApiServer : IDisposable
             }
 
             string toolName = nameElem.GetString() ?? "";
-            JsonElement arguments = root.TryGetProperty("arguments", out JsonElement argsElem) ? argsElem : default;
+            Dictionary<string, object?> args = [];
 
-            DebugLogger.Mcp($"Tool execution requested: {toolName}");
-            DebugLogger.Mcp($"Tool arguments: {arguments}");
-            Console.WriteLine($"[MCP] Executing tool: {toolName}");
-
-            if (_mcpManager == null)
+            if (root.TryGetProperty("arguments", out JsonElement argsElem)
+                && argsElem.ValueKind == JsonValueKind.Object)
             {
-                res.StatusCode = (int)HttpStatusCode.InternalServerError;
-                await WriteJsonAsync(res, new { error = "MCP manager not initialized" });
-                return;
+                args = argsElem.EnumerateObject()
+                    .ToDictionary(p => p.Name, p => JsonSerializer.Deserialize<object?>(p.Value.GetRawText()));
             }
 
-            McpCallToolResult result = await _mcpManager.CallToolAsync(toolName, arguments);
+            DebugLogger.Mcp($"Tool execution requested: {toolName}");
 
-            DebugLogger.Mcp($"Tool execution completed: {toolName}");
-            Console.WriteLine($"[MCP] Tool execution completed: {toolName}");
-
-            // MCP ツールの実行結果をフロントエンドに返す
-            // Content からテキストを抽出
-            string? responseText = null;
-            if (result.Content != null && result.Content.Count > 0)
+            // ツール名からどのクライアントが持っているか探して実行
+            CallToolResult? result = null;
+            foreach (KeyValuePair<string, McpClient> kvp in _mcpManager.GetClients())
             {
-                ContentBlock? textContent = result.Content.FirstOrDefault(c => c.Type == "text");
-                if (textContent != null)
+                IList<McpClientTool> tools = await kvp.Value.ListToolsAsync();
+                McpClientTool? tool = tools.FirstOrDefault(t => t.Name == toolName);
+
+                if (tool != null)
                 {
-                    responseText = textContent.Text;
+                    result = await tool.CallAsync(args);
+                    break;
                 }
             }
 
+            if (result == null)
+            {
+                res.StatusCode = (int)HttpStatusCode.NotFound;
+                await WriteJsonAsync(res, new { error = $"Tool '{toolName}' not found" });
+                return;
+            }
+
+            DebugLogger.Mcp($"Tool execution completed: {toolName}");
+
+            string? responseText = result.Content.ToString();
+
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
-
-            // ツール実行結果を返す
             await WriteJsonAsync(res, new
             {
-                success = !result.IsError,
+                success = !(result.IsError ?? false),
                 content = responseText,
-                result = result // 元の結果も含める
             });
         }
         catch (Exception ex)
@@ -279,73 +289,25 @@ public class SimpleApiServer : IDisposable
         }
     }
 
-    /// <summary>
-    /// MCP ツール一覧を取得
-    /// </summary>
+    
     async Task HandleMcpListToolsAsync(HttpListenerRequest req, HttpListenerResponse res)
     {
-        var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "api_server.log");
-        void Log(string msg) => File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {msg}{Environment.NewLine}");
-
-        Log($"HandleMcpListToolsAsync called - Method: {req.HttpMethod}");
-        Log($"_mcpManager is null: {_mcpManager == null}");
-        
-        if (_mcpManager != null)
+        if (_mcpManager == null)
         {
-            var status = _mcpManager.GetStatus();
-            Log($"MCP Status: enabled={status.enabled}, activeCount={status.activeCount}, totalCount={status.totalCount}");
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "MCP manager not initialized" });
+            return;
         }
 
         try
         {
-            if (_mcpManager == null)
+            List<McpClientTool> allTools = [];
+
+            foreach (KeyValuePair<string, McpClient> kvp in _mcpManager.GetClients())
             {
-                Log("MCP manager is null");
-                res.StatusCode = (int)HttpStatusCode.InternalServerError;
-                await WriteJsonAsync(res, new { error = "MCP manager not initialized" });
-                return;
+                IList<McpClientTool> tools = await kvp.Value.ListToolsAsync();
+                allTools.AddRange(tools);
             }
-
-            // Get all tools from all MCP servers
-            var allTools = new List<McpToolDefinition>();
-
-            // Access clients via reflection (McpManager._clients)
-            var clientsField = typeof(McpManager).GetField("_clients", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (clientsField != null)
-            {
-                var clients = clientsField.GetValue(_mcpManager) as System.Collections.Generic.Dictionary<string, McpClientWrapper>;
-                Log($"Found {clients?.Count ?? 0} MCP clients");
-
-                if (clients != null)
-                {
-                    foreach (var client in clients.Values)
-                    {
-                        try
-                        {
-                            Log($"Listing tools from {client.Name}...");
-                            var tools = await client.ListToolsAsync();
-                            Log($"Got {tools.Count} tools from {client.Name}");
-                            
-                            // Add server name prefix to tool names
-                            foreach (var tool in tools)
-                            {
-                                tool.Name = $"{client.Name}_{tool.Name}";
-                                allTools.Add(tool);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log($"Failed to list tools from {client.Name}: {ex.Message}");
-                        }
-                    }
-                }
-            }
-            else
-            {
-                Log("Could not find _clients field via reflection");
-            }
-
-            Log($"Returning {allTools.Count} tools");
 
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
@@ -353,7 +315,6 @@ public class SimpleApiServer : IDisposable
         }
         catch (Exception ex)
         {
-            Log($"Exception: {ex.Message}\n{ex.StackTrace}");
             res.StatusCode = (int)HttpStatusCode.InternalServerError;
             await WriteJsonAsync(res, new { error = "Failed to list tools", detail = ex.Message });
         }

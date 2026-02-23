@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
+using ModelContextProtocol.Client;
 
 namespace CApp.Server;
 
@@ -13,7 +13,7 @@ namespace CApp.Server;
 /// </summary>
 public class McpManager : IDisposable
 {
-    readonly Dictionary<string, McpClientWrapper> _clients = new();
+    readonly Dictionary<string, McpClient> _clients = [];
     ApiSettings _settings = new();
     static readonly string LogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mcp_manager.log");
 
@@ -24,83 +24,83 @@ public class McpManager : IDisposable
         File.AppendAllText(LogPath, line, Encoding.UTF8);
     }
 
-    // public bool IsEnabled => _settings.McpEnabled;
+    public Dictionary<string, McpClient> GetClients()
+    {
+        return _clients;
+    }
 
     public async Task UpdateSettingsAsync(ApiSettings settings)
     {
         Log($"UpdateSettingsAsync called. McpEnabled={settings.McpEnabled}, ServerCount={settings.McpServers.Count}");
-        Console.WriteLine($"[McpManager] UpdateSettingsAsync called. McpEnabled={settings.McpEnabled}, ServerCount={settings.McpServers.Count}");
         _settings = settings;
 
         // 削除されたサーバーを停止
-        List<string> removed = _clients.Keys.Except(settings.McpServers.Keys).ToList();
-        foreach (string name in removed)
+        foreach (string name in _clients.Keys.Except(settings.McpServers.Keys).ToList())
         {
             Log($"Stopping removed MCP server: {name}");
-            Console.WriteLine($"[McpManager] Stopping removed MCP server: {name}");
-            _clients[name].Dispose();
+            await _clients[name].DisposeAsync();
             _clients.Remove(name);
         }
 
-        // 有効なサーバーのみ起動
         if (settings.McpEnabled)
         {
             Log($"MCP is enabled. Starting {settings.McpServers.Count} server(s)...");
-            Console.WriteLine($"[McpManager] MCP is enabled. Starting {settings.McpServers.Count} server(s)...");
-            foreach (KeyValuePair<string, McpServerConfig> kv in settings.McpServers)
+            foreach ((string? name, McpServerConfig? config) in settings.McpServers)
             {
-                if (!_clients.ContainsKey(kv.Key))
+                if (_clients.ContainsKey(name)) continue;
+
+                try
                 {
-                    try
+                    Log($"Starting MCP server: {name} (Command: {config.Command}, Args: {string.Join(" ", config.Args)})");
+
+                    StdioClientTransport transport = new(new StdioClientTransportOptions
                     {
-                        Log($"Starting MCP server: {kv.Key} (Command: {kv.Value.Command}, Args: {string.Join(" ", kv.Value.Args)})");
-                        Console.WriteLine($"[McpManager] Starting MCP server: {kv.Key} (Command: {kv.Value.Command}, Args: {string.Join(" ", kv.Value.Args)})");
-                        McpClientWrapper client = new McpClientWrapper(kv.Key, kv.Value);
-                        await client.ConnectAsync();
-                        _clients[kv.Key] = client;
-                        Log($"MCP server started: {kv.Key}");
-                        Console.WriteLine($"[McpManager] MCP server started: {kv.Key}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"Failed to start MCP server {kv.Key}: {ex.Message}\nStackTrace: {ex.StackTrace}");
-                        Console.WriteLine($"[McpManager] Failed to start MCP server {kv.Key}: {ex.Message}\nStackTrace: {ex.StackTrace}");
-                    }
+                        Name = name,
+                        Command = config.Command,
+                        Arguments = [.. config.Args],
+                        EnvironmentVariables = config.Env?.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => (string?)kvp.Value
+                        )
+                    });
+
+                    McpClient client = await McpClient.CreateAsync(transport);
+                    _clients[name] = client;
+
+                    Log($"MCP server started: {name}");
+                }
+                catch (Exception ex)
+                {
+                    Log($"Failed to start MCP server {name}: {ex.Message}\n{ex.StackTrace}");
                 }
             }
         }
         else
         {
             Log("MCP is disabled. Stopping all servers.");
-            Console.WriteLine("[McpManager] MCP is disabled. Stopping all servers.");
-            StopAll();
+            await StopAllAsync();
         }
+    }
+
+    public async Task StopAllAsync()
+    {
+        foreach (McpClient client in _clients.Values)
+            await client.DisposeAsync();
+        _clients.Clear();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopAllAsync();
     }
 
     public void StopAll()
     {
-        foreach (McpClientWrapper client in _clients.Values)
+        foreach (McpClient client in _clients.Values)
         {
-            client.Dispose();
+            _ = client.DisposeAsync();
         }
         _clients.Clear();
-    }
-
-    public async Task<McpCallToolResult> CallToolAsync(string namespacedName, JsonElement arguments)
-    {
-        if (!_settings.McpEnabled) throw new Exception("MCP is not enabled");
-
-        int separatorIndex = namespacedName.IndexOf('_');
-        if (separatorIndex == -1) throw new Exception("Invalid tool name format");
-
-        string serverName = namespacedName.Substring(0, separatorIndex);
-        string originalName = namespacedName.Substring(separatorIndex + 1);
-
-        if (_clients.TryGetValue(serverName, out McpClientWrapper? client))
-        {
-            return await client.CallToolAsync(originalName, arguments);
-        }
-        throw new Exception($"MCP server not found: {serverName}");
     }
 
     public void Dispose()

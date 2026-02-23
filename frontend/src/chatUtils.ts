@@ -32,6 +32,15 @@ export interface ToolCall {
  * MCP Tool information compatible with @modelcontextprotocol/sdk types
  */
 export interface McpToolInfo {
+  returnJsonSchema: {
+    properties: {
+      content: {
+        type: string;
+      };
+    };
+    required: string[];
+    type: string;
+  };
   name: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
@@ -558,37 +567,6 @@ export async function executeMcpTool(
   }
 }
 
-export async function processToolCalls(
-  toolCalls: ToolCall[],
-  executedToolCallIds: Set<string>,
-  onToolExecute: (name: string, args: unknown, result: unknown) => void
-): Promise<{ executed: ToolCall[]; skipped: number }> {
-  const executed: ToolCall[] = [];
-  let skipped = 0;
-
-  for (const tc of toolCalls) {
-    if (executedToolCallIds.has(tc.id)) {
-      console.log(`Skipping already executed tool call: ${tc.id}`);
-      skipped++;
-      continue;
-    }
-
-    let args: unknown = {};
-    try {
-      args = JSON.parse(tc.arguments);
-    } catch {
-      console.error('[processToolCalls] Error parsing tool arguments for:', tc.name);
-    }
-
-    const result = await executeMcpTool(tc.name, args);
-    onToolExecute(tc.name, args, result);
-    executedToolCallIds.add(tc.id);
-    executed.push(tc);
-  }
-
-  return { executed, skipped };
-}
-
 /**
  * Build the messages array to send after tool results are available.
  * NOTE: For Anthropic (Claude), tool results must be in user messages with
@@ -635,6 +613,7 @@ export async function getAvailableTools(): Promise<McpToolInfo[]> {
     const response = await fetch('http://localhost:30078/api/mcp/tools');
     if (!response.ok) return [];
     const data = await response.json();
+    console.log(data)
     return (data.tools as McpToolInfo[]) ?? [];
   } catch (error) {
     console.error('[getAvailableTools] Error fetching tools:', error);
@@ -646,59 +625,30 @@ export function convertToOpenAITools(tools: McpToolInfo[]): OpenAI.Chat.ChatComp
   return tools.map(tool => {
     let properties: Record<string, unknown> = {};
     let required: string[] = [];
+    let type: string = "";
 
-    if (tool.inputSchemaJson) {
+    if (tool.returnJsonSchema) {
       try {
-        const schema = JSON.parse(tool.inputSchemaJson);
-        properties = schema.properties ?? {};
-        required = schema.required ?? [];
+        properties = tool.returnJsonSchema.properties ?? {};
+        required = tool.returnJsonSchema.required ?? [];
+        type = tool.returnJsonSchema.type ?? "";
       } catch {
         console.error('[convertToOpenAITools] Error parsing schema for tool:', tool.name);
       }
+    } else {
+      console.log(tool)
+      console.log("[WARN] tool.inputSchemaJson does not exist");
     }
+
+    console.log(tool)
 
     return {
       type: 'function' as const,
       function: {
         name: tool.name,
         description: tool.description ?? '',
-        parameters: { type: 'object' as const, properties, required },
+        parameters: { type, properties, required },
       },
     };
   });
-}
-
-export function buildSystemMessageWithTools(
-  tools: McpToolInfo[],
-  customSystemMessage?: string
-): ChatMessage {
-  const toolSection =
-    tools.length > 0
-      ? tools
-          .map(tool => {
-            let params = 'パラメータなし';
-            if (tool.inputSchemaJson) {
-              try {
-                const schema = JSON.parse(tool.inputSchemaJson);
-                if (schema.properties) {
-                  params = Object.entries(schema.properties as Record<string, any>)
-                    .map(([key, val]) => `  - ${key}: ${val.type ?? 'any'} - ${val.description ?? ''}`)
-                    .join('\n');
-                }
-              } catch {
-                params = 'パラメータ情報なし';
-              }
-            }
-            return `### ${tool.name}\n${tool.description ?? '説明なし'}\n\nパラメータ:\n${params}`;
-          })
-          .join('\n\n')
-      : '利用可能なツールはありません。';
-
-  const content = [
-    'あなたは有能なアシスタントです。ツールを使用してユーザーのタスクを支援してください。',
-    '\n\n## 利用可能なツール\n\n' + toolSection,
-    customSystemMessage ? `\n\n${customSystemMessage}` : '',
-  ].join('');
-
-  return { role: 'system', content };
 }
