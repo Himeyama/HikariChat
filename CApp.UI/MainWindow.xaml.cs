@@ -227,19 +227,18 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async Task ExecuteMcpToolAsync(string toolName, JsonElement arguments)
     {
+        // toolCallId を生成（フロントエンドと同じ形式）
+        string toolCallId = $"tool-{DateTimeOffset.Now.ToUnixTimeMilliseconds()}-{new Random().Next(100000000, 999999999)}";
+        
         try
         {
-            LogInfo($"Executing MCP tool: {toolName}");
-            
-            // WebView2 のコンソールにログを出力
-            await ExecuteScriptAsync($"console.log('[MCP] Tool call: {toolName}');");
-            await ExecuteScriptAsync($"console.log('[MCP] Arguments: {JsonSerializer.Serialize(arguments)}');");
+            LogInfo($"Executing MCP tool: {toolName}, toolCallId: {toolCallId}");
 
             // API サーバーにツール実行を依頼
             using HttpClient httpClient = new();
             string payload = JsonSerializer.Serialize(new { name = toolName, arguments });
             StringContent content = new(payload, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await httpClient.PostAsync("http://localhost:51234/api/mcp/execute", content);
+            HttpResponseMessage response = await httpClient.PostAsync("http://localhost:30078/api/mcp/execute", content);
 
             if (response.IsSuccessStatusCode)
             {
@@ -248,27 +247,48 @@ public sealed partial class MainWindow : Window
                 JsonElement result = resultDoc.RootElement;
                 LogInfo($"MCP tool execution completed: {toolName}, Success: {result.GetProperty("success").GetBoolean()}");
 
-                // WebView2 のコンソールに結果を出力
-                bool success = result.GetProperty("success").GetBoolean();
-                await ExecuteScriptAsync($"console.log('[MCP] Tool result: {success}');");
-                
-                if (!success)
+                // ツール実行結果を WebView に返す
+                var toolResult = new
                 {
-                    string? error = result.GetProperty("content").GetString();
-                    await ExecuteScriptAsync($"console.error('[MCP] Error: {error}');");
-                }
+                    toolCallId = toolCallId,
+                    method = "toolResult",
+                    name = toolName,
+                    result = result
+                };
+                string resultJson = JsonSerializer.Serialize(toolResult);
+                Preview.CoreWebView2?.PostWebMessageAsString(resultJson);
             }
             else
             {
                 string error = await response.Content.ReadAsStringAsync();
                 LogInfo($"MCP tool execution failed: {error}");
-                await ExecuteScriptAsync($"console.error('[MCP] Execution failed: {error}');");
+                
+                // エラー結果を WebView に返す
+                var errorResult = new
+                {
+                    toolCallId = toolCallId,
+                    method = "toolResult",
+                    name = toolName,
+                    result = new { error = error }
+                };
+                string errorJson = JsonSerializer.Serialize(errorResult);
+                Preview.CoreWebView2?.PostWebMessageAsString(errorJson);
             }
         }
         catch (Exception ex)
         {
             LogInfo($"MCP tool execution error: {ex.Message}");
-            await ExecuteScriptAsync($"console.error('[MCP] Exception: {ex.Message}');");
+            
+            // 例外結果を WebView に返す
+            var exceptionResult = new
+            {
+                toolCallId = toolCallId,
+                method = "toolResult",
+                name = toolName,
+                result = new { error = ex.Message }
+            };
+            string exceptionJson = JsonSerializer.Serialize(exceptionResult);
+            Preview.CoreWebView2?.PostWebMessageAsString(exceptionJson);
         }
     }
 

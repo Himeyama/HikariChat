@@ -348,23 +348,28 @@ function App() {
     for (const tc of toolCalls) {
       // Skip already executed tool calls
       if (executedToolCallIds.has(tc.id)) {
+        console.log(`[executeTools] Skipping already executed tool: ${tc.id}`);
         continue;
       }
+
+      console.log(`[executeTools] Executing tool: ${tc.name}`, tc.arguments);
 
       let args = {};
       try {
         args = JSON.parse(tc.arguments);
       } catch (e) {
-        console.error("Error parsing tool arguments:", e);
+        console.error("[executeTools] Error parsing tool arguments:", e);
       }
 
       // Execute the tool
       const result = await executeMcpTool(tc.name, args);
       const resultString = JSON.stringify(result);
-      
+
+      console.log(`[executeTools] Tool result:`, result);
+
       // Add tool result message to UI
       addMessage(resultString, "tool", tc.name, tc.id);
-      
+
       toolResults.push({
         name: tc.name,
         content: resultString,
@@ -440,11 +445,16 @@ function App() {
   ): Promise<void> => {
     // Base case: max iterations reached
     if (iterationCount >= maxIterations) {
+      console.log('[processChatRecursiveWithTools] Max iterations reached');
       return;
     }
 
+    console.log(`[processChatRecursiveWithTools] Iteration ${iterationCount}, messages:`, localMessages);
+
     // Send message to chat API with tools
     const result = await callChatApiWithTools(localMessages, tools);
+
+    console.log('[processChatRecursiveWithTools] LLM result:', result);
 
     // アシスタントメッセージをローカルメッセージに追加
     // 非ストリーミング時は UI にも追加（ストリーミング時は UI 更新済み）
@@ -457,14 +467,20 @@ function App() {
 
     // If no tool calls, we're done
     if (result.toolCalls.length === 0) {
+      console.log('[processChatRecursiveWithTools] No tool calls, done');
       return;
     }
+
+    console.log('[processChatRecursiveWithTools] Executing tools:', result.toolCalls);
 
     // Execute tools and get results
     const toolResults = await executeTools(result.toolCalls, executedToolCallIds);
 
+    console.log('[processChatRecursiveWithTools] Tool results:', toolResults);
+
     // If no new tools were executed, stop
     if (toolResults.length === 0) {
+      console.log('[processChatRecursiveWithTools] No tools executed, done');
       return;
     }
 
