@@ -458,7 +458,9 @@ function App() {
 
     // アシスタントメッセージをローカルメッセージに追加
     if (result.content || result.toolCalls.length > 0) {
-      addMessage(result.content, "assistant");
+      if (!currentSettings.streaming) {
+        addMessage(result.content, "assistant");
+      }
       localMessages.push({ role: "assistant", content: result.content });
     }
 
