@@ -46,13 +46,12 @@ public class ContentBlock
 /// </summary>
 public class McpClientWrapper : IDisposable
 {
-    private object? _client;
-    private readonly string _name;
-    private readonly McpServerConfig _options;
-    private readonly CancellationTokenSource _cts = new();
+    object? _client;
+    readonly string _name;
+    readonly McpServerConfig _options;
+    readonly CancellationTokenSource _cts = new();
 
     public string Name => _name;
-    public bool IsConnected => _client != null;
 
     public McpClientWrapper(string name, McpServerConfig options)
     {
@@ -81,9 +80,7 @@ public class McpClientWrapper : IDisposable
 
         StdioClientTransport transport = new StdioClientTransport(transportOptions);
         Console.WriteLine($"[{_name}] Creating MCP client transport...");
-#pragma warning disable CS8602
         McpClient client = await McpClient.CreateAsync(transport, cancellationToken: _cts.Token).ConfigureAwait(false);
-#pragma warning restore CS8602
         _client = client!;
         Console.WriteLine($"[{_name}] MCP client created successfully");
     }
@@ -98,8 +95,7 @@ public class McpClientWrapper : IDisposable
         MethodInfo? listToolsMethod = _client.GetType().GetMethod("ListToolsAsync");
         if (listToolsMethod != null)
         {
-            Task? resultTask = listToolsMethod.Invoke(_client, new object[] { _cts.Token }) as Task;
-            if (resultTask != null)
+            if (listToolsMethod.Invoke(_client, [_cts.Token]) is Task resultTask)
             {
                 await resultTask.ConfigureAwait(false);
                 object? result = resultTask.GetType().GetProperty("Result")?.GetValue(resultTask);
@@ -110,14 +106,17 @@ public class McpClientWrapper : IDisposable
                         PropertyInfo? nameProp = tool.GetType().GetProperty("Name");
                         PropertyInfo? descProp = tool.GetType().GetProperty("Description");
                         PropertyInfo? schemaProp = tool.GetType().GetProperty("Parameters");
-                        
+
+
                         tools.Add(new McpToolDefinition
                         {
                             Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                             Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                            InputSchema = schemaProp != null ? 
+                            InputSchema = schemaProp != null ?
+
                                 JsonSerializer.Deserialize<JsonElement>(
-                                    JsonSerializer.Serialize(schemaProp.GetValue(tool))) 
+                                    JsonSerializer.Serialize(schemaProp.GetValue(tool)))
+
                                 : default
                         });
                     }
@@ -143,11 +142,11 @@ public class McpClientWrapper : IDisposable
 
         // リフレクションを使って CallToolAsync を呼び出し
         MethodInfo? callToolMethod = _client.GetType().GetMethod("CallToolAsync", 
-            new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(CancellationToken) });
+            [typeof(string), typeof(Dictionary<string, object?>), typeof(CancellationToken)]);
         
         if (callToolMethod != null)
         {
-            dynamic result = await (dynamic?)callToolMethod.Invoke(_client, new object[] { name, argsDict, _cts.Token })!;
+            dynamic result = await (dynamic?)callToolMethod.Invoke(_client, [name, argsDict, _cts.Token])!;
             if (result != null)
             {
                 dynamic contentProp = result.GetType().GetProperty("Content");
@@ -200,5 +199,3 @@ public class McpClientWrapper : IDisposable
         _cts.Dispose();
     }
 }
-
-#pragma warning restore CS8602

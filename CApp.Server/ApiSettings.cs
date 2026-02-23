@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -16,7 +15,7 @@ public class McpServerConfig : ObservableObject
         set => SetProperty(ref _command, value);
     }
 
-    private List<string> _args = new();
+    private List<string> _args = [];
 
     [JsonPropertyName("args")]
     public List<string> Args
@@ -37,41 +36,6 @@ public class McpServerConfig : ObservableObject
 
 public class ApiSettings : ObservableObject
 {
-    private string _apiType = "chat_completions";
-
-    [JsonPropertyName("apiType")]
-    public string ApiType
-    {
-        get => _apiType;
-        set => SetProperty(ref _apiType, value);
-    }
-
-    private string _endpointPreset = "openai";
-
-    [JsonPropertyName("endpointPreset")]
-    public string EndpointPreset
-    {
-        get => _endpointPreset;
-        set => SetProperty(ref _endpointPreset, value);
-    }
-
-    private string _apiEndpoint = "";
-
-    [JsonPropertyName("apiEndpoint")]
-    public string ApiEndpoint
-    {
-        get => _apiEndpoint;
-        set => SetProperty(ref _apiEndpoint, value);
-    }
-
-    private string _apiKey = "";
-
-    [JsonPropertyName("apiKey")]
-    public string ApiKey
-    {
-        get => _apiKey;
-        set => SetProperty(ref _apiKey, value);
-    }
 
     private string _model = "";
 
@@ -80,24 +44,6 @@ public class ApiSettings : ObservableObject
     {
         get => _model;
         set => SetProperty(ref _model, value);
-    }
-
-    private string _azureDeployment = "";
-
-    [JsonPropertyName("azureDeployment")]
-    public string AzureDeployment
-    {
-        get => _azureDeployment;
-        set => SetProperty(ref _azureDeployment, value);
-    }
-
-    private bool _streaming = true;
-
-    [JsonPropertyName("streaming")]
-    public bool Streaming
-    {
-        get => _streaming;
-        set => SetProperty(ref _streaming, value);
     }
 
     private bool _mcpEnabled = false;
@@ -109,7 +55,7 @@ public class ApiSettings : ObservableObject
         set => SetProperty(ref _mcpEnabled, value);
     }
 
-    private Dictionary<string, McpServerConfig> _mcpServers = new();
+    private Dictionary<string, McpServerConfig> _mcpServers = [];
 
     [JsonPropertyName("mcpServers")]
     public Dictionary<string, McpServerConfig> McpServers

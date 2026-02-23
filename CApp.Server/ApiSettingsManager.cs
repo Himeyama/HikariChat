@@ -5,20 +5,14 @@ using System.Threading.Tasks;
 
 namespace CApp.Server;
 
-/// <summary>
-/// API 設定�E永続化を管琁E
-/// </summary>
 public static class ApiSettingsManager
 {
-    private static readonly string SettingsPath = Path.Combine(
+    static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "CApp",
         "settings.json"
     );
 
-    /// <summary>
-    /// 設定を保孁E
-    /// </summary>
     public static async Task SaveAsync(ApiSettings settings)
     {
         try

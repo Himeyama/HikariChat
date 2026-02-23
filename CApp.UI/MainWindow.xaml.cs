@@ -92,9 +92,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// チE��チE��用�E�Ollama 利用可能フラグを手動設宁E
-    /// </summary>
     public void SetOllamaAvailable(bool available)
     {
         IsOllamaAvailable = available;
@@ -148,7 +145,6 @@ public sealed partial class MainWindow : Window
 
     void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        // メチE��ージを文字�Eとして受け取る
         string json = e.TryGetWebMessageAsString();
         if (string.IsNullOrEmpty(json))
         {
@@ -240,31 +236,31 @@ public sealed partial class MainWindow : Window
             await ExecuteScriptAsync($"console.log('[MCP] Arguments: {JsonSerializer.Serialize(arguments)}');");
 
             // API サーバーにツール実行を依頼
-            using var httpClient = new HttpClient();
-            var payload = JsonSerializer.Serialize(new { name = toolName, arguments });
-            var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            var response = await httpClient.PostAsync("http://localhost:51234/api/mcp/execute", content);
+            using HttpClient httpClient = new();
+            string payload = JsonSerializer.Serialize(new { name = toolName, arguments });
+            StringContent content = new(payload, Encoding.UTF8, "application/json");
+            HttpResponseMessage response = await httpClient.PostAsync("http://localhost:51234/api/mcp/execute", content);
 
             if (response.IsSuccessStatusCode)
             {
-                var responseJson = await response.Content.ReadAsStringAsync();
-                using var resultDoc = JsonDocument.Parse(responseJson);
-                var result = resultDoc.RootElement;
+                string responseJson = await response.Content.ReadAsStringAsync();
+                using JsonDocument resultDoc = JsonDocument.Parse(responseJson);
+                JsonElement result = resultDoc.RootElement;
                 LogInfo($"MCP tool execution completed: {toolName}, Success: {result.GetProperty("success").GetBoolean()}");
-                
+
                 // WebView2 のコンソールに結果を出力
-                var success = result.GetProperty("success").GetBoolean();
+                bool success = result.GetProperty("success").GetBoolean();
                 await ExecuteScriptAsync($"console.log('[MCP] Tool result: {success}');");
                 
                 if (!success)
                 {
-                    var error = result.GetProperty("content").GetString();
+                    string? error = result.GetProperty("content").GetString();
                     await ExecuteScriptAsync($"console.error('[MCP] Error: {error}');");
                 }
             }
             else
             {
-                var error = await response.Content.ReadAsStringAsync();
+                string error = await response.Content.ReadAsStringAsync();
                 LogInfo($"MCP tool execution failed: {error}");
                 await ExecuteScriptAsync($"console.error('[MCP] Execution failed: {error}');");
             }
@@ -300,9 +296,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// チE��ト�E動化�E�現在のチャチE��履歴を取征E
-    /// </summary>
     public async Task<string?> GetChatHistoryAsync()
     {
         string result = await ExecuteScriptAsync("JSON.stringify(window.chrome.webview.targetEnvironment?.tabs || {})");

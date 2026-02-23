@@ -13,18 +13,18 @@ namespace CApp.Server;
 /// </summary>
 public class McpManager : IDisposable
 {
-    private readonly Dictionary<string, McpClientWrapper> _clients = new();
-    private ApiSettings _settings = new();
-    private static readonly string LogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mcp_manager.log");
+    readonly Dictionary<string, McpClientWrapper> _clients = new();
+    ApiSettings _settings = new();
+    static readonly string LogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mcp_manager.log");
 
-    private static void Log(string message)
+    static void Log(string message)
     {
         string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
         string line = $"{time} [INFO] {message}{Environment.NewLine}";
         File.AppendAllText(LogPath, line, Encoding.UTF8);
     }
 
-    public bool IsEnabled => _settings.McpEnabled;
+    // public bool IsEnabled => _settings.McpEnabled;
 
     public async Task UpdateSettingsAsync(ApiSettings settings)
     {
@@ -84,40 +84,6 @@ public class McpManager : IDisposable
             client.Dispose();
         }
         _clients.Clear();
-    }
-
-    public async Task<List<object>> GetOpenAiToolsAsync()
-    {
-        List<object> allTools = new List<object>();
-        if (!_settings.McpEnabled) return allTools;
-
-        foreach (McpClientWrapper client in _clients.Values)
-        {
-            try
-            {
-                List<McpToolDefinition> tools = await client.ListToolsAsync();
-                foreach (McpToolDefinition tool in tools)
-                {
-                    string namespacedName = $"{client.Name}_{tool.Name}";
-
-                    allTools.Add(new
-                    {
-                        type = "function",
-                        function = new
-                        {
-                            name = namespacedName,
-                            description = tool.Description,
-                            parameters = tool.InputSchema
-                        }
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[McpManager] Failed to list tools for {client.Name}: {ex.Message}");
-            }
-        }
-        return allTools;
     }
 
     public async Task<McpCallToolResult> CallToolAsync(string namespacedName, JsonElement arguments)

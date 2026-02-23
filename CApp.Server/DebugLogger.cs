@@ -1,13 +1,9 @@
 using System;
 using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace CApp;
 
-/// <summary>
-/// チE��チE��ログ管琁E
-/// </summary>
 public static class DebugLogger
 {
     private static readonly string LogFilePath = Path.Combine(
@@ -38,7 +34,7 @@ public static class DebugLogger
     }
 
     /// <summary>
-    /// 惁E��ログ
+    /// 情報ログ
     /// </summary>
     public static void Info(string message)
     {
@@ -54,7 +50,7 @@ public static class DebugLogger
     }
 
     /// <summary>
-    /// エラーログ�E�スタチE��トレース付き�E�E
+    /// エラーログ
     /// </summary>
     public static void Error(string message, Exception ex)
     {
