@@ -273,7 +273,7 @@ async function sendToOpenAI(
     toolCalls:
       message?.tool_calls
         ?.filter(tc => tc.type === 'function')
-        .map(tc => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })) ?? [],
+        .map(tc => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments ?? '{}' })) ?? [],
   };
   callbacks?.onComplete?.(result);
   return result;
@@ -334,7 +334,7 @@ async function sendToAzureOpenAI(
     toolCalls:
       message?.tool_calls
         ?.filter(tc => tc.type === 'function')
-        .map(tc => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })) ?? [],
+        .map(tc => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments ?? '{}' })) ?? [],
   };
   callbacks?.onComplete?.(result);
   return result;
