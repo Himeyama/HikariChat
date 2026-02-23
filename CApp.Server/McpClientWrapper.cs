@@ -153,17 +153,17 @@ public class McpClientWrapper : IDisposable
                                 {
                                     var nameProp = tool.GetType().GetProperty("Name");
                                     var descProp = tool.GetType().GetProperty("Description");
-                                    var schemaProp = tool.GetType().GetProperty("Parameters");
-                                    
+                                    var schemaProp = tool.GetType().GetProperty("InputSchema");
+
                                     var toolDef = new McpToolDefinition
                                     {
                                         Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                         Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                        InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
-                                            System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                        InputSchemaJson = schemaProp?.GetValue(tool) != null ?
+                                            System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) :
                                             null
                                     };
-                                    Log($"Found tool: {toolDef.Name} - {toolDef.Description}");
+                                    Log($"Found tool: {toolDef.Name} - {toolDef.Description} - InputSchemaJson={(toolDef.InputSchemaJson != null ? "present" : "null")}");
                                     tools.Add(toolDef);
                                 }
                             }
@@ -180,17 +180,17 @@ public class McpClientWrapper : IDisposable
                                 {
                                     var nameProp = tool.GetType().GetProperty("Name");
                                     var descProp = tool.GetType().GetProperty("Description");
-                                    var schemaProp = tool.GetType().GetProperty("Parameters");
-                                    
+                                    var schemaProp = tool.GetType().GetProperty("InputSchema");
+
                                     var toolDef = new McpToolDefinition
                                     {
                                         Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                         Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                        InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
-                                            System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                        InputSchemaJson = schemaProp?.GetValue(tool) != null ?
+                                            System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) :
                                             null
                                     };
-                                    Log($"Found tool: {toolDef.Name}");
+                                    Log($"Found tool: {toolDef.Name} - InputSchemaJson={(toolDef.InputSchemaJson != null ? "present" : "null")}");
                                     tools.Add(toolDef);
                                 }
                             }
@@ -233,17 +233,17 @@ public class McpClientWrapper : IDisposable
                             {
                                 var nameProp = tool.GetType().GetProperty("Name");
                                 var descProp = tool.GetType().GetProperty("Description");
-                                var schemaProp = tool.GetType().GetProperty("Parameters");
-                                
+                                var schemaProp = tool.GetType().GetProperty("InputSchema");
+
                                 var toolDef = new McpToolDefinition
                                 {
                                     Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                     Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                    InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
-                                        System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                    InputSchemaJson = schemaProp?.GetValue(tool) != null ?
+                                        System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) :
                                         null
                                 };
-                                Log($"Found tool: {toolDef.Name} - {toolDef.Description}");
+                                Log($"Found tool: {toolDef.Name} - InputSchemaJson={(toolDef.InputSchemaJson != null ? "present" : "null")}");
                                 tools.Add(toolDef);
                             }
                         }
@@ -260,17 +260,17 @@ public class McpClientWrapper : IDisposable
                             {
                                 var nameProp = tool.GetType().GetProperty("Name");
                                 var descProp = tool.GetType().GetProperty("Description");
-                                var schemaProp = tool.GetType().GetProperty("Parameters");
-                                
+                                var schemaProp = tool.GetType().GetProperty("InputSchema");
+
                                 var toolDef = new McpToolDefinition
                                 {
                                     Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                     Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                    InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
-                                        System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                    InputSchemaJson = schemaProp?.GetValue(tool) != null ?
+                                        System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) :
                                         null
                                 };
-                                Log($"Found tool: {toolDef.Name}");
+                                Log($"Found tool: {toolDef.Name} - InputSchemaJson={(toolDef.InputSchemaJson != null ? "present" : "null")}");
                                 tools.Add(toolDef);
                             }
                         }
