@@ -3,7 +3,7 @@ import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
 import hljs from 'highlight.js';
-import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, buildSystemMessageWithTools, type ToolCall } from './chatUtils';
+import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, convertToOpenAITools, type ToolCall } from './chatUtils';
 
 // Create a new Marked instance and configure it
 const customMarked = new Marked();
@@ -282,6 +282,61 @@ function App() {
   };
 
   /**
+   * Send message to chat API with tools
+   */
+  const callChatApiWithTools = async (messages: ChatMessage[], tools: any[]): Promise<{ content: string; toolCalls: ToolCall[] }> => {
+    const useStreaming = currentSettings.streaming;
+    let accumulatedContent = '';
+    let messageAdded = false;
+
+    console.log('[callChatApiWithTools] Sending messages:', JSON.stringify(messages, null, 2));
+    console.log('[callChatApiWithTools] Tools:', JSON.stringify(tools, null, 2));
+
+    return new Promise((resolve, reject) => {
+      sendChatMessage(messages, {
+        apiKey: currentSettings.apiKey,
+        apiEndpoint: currentSettings.apiEndpoint,
+        model: currentSettings.model,
+        apiType: currentSettings.apiType,
+        endpointPreset: currentSettings.endpointPreset,
+        azureDeployment: currentSettings.azureDeployment,
+        streaming: useStreaming,
+        mcpEnabled: currentSettings.mcpEnabled,
+        tools: tools
+      }, {
+        onContent: (content: string) => {
+          accumulatedContent += content;
+          // ストリーミング中に UI を更新
+          if (!messageAdded) {
+            addMessage('', 'assistant');
+            messageAdded = true;
+          }
+          setTabs(prevTabs => {
+            const currentTabId = activeTabIdRef.current;
+            const history = [...prevTabs[currentTabId].conversationHistory];
+            if (history.length > 0) {
+              history[history.length - 1] = {
+                role: 'assistant',
+                content: accumulatedContent
+              };
+            }
+            return {
+              ...prevTabs,
+              [currentTabId]: { ...prevTabs[currentTabId], conversationHistory: history }
+            };
+          });
+        },
+        onComplete: (result) => {
+          resolve(result);
+        },
+        onError: (error) => {
+          reject(error);
+        }
+      });
+    });
+  };
+
+  /**
    * Execute tool calls and return results
    */
   const executeTools = async (
@@ -373,6 +428,58 @@ function App() {
     await processChatRecursive(nextMessages, executedToolCallIds, iterationCount + 1, maxIterations);
   };
 
+  /**
+   * Recursive function to handle chat with tool calls (with OpenAI tools)
+   */
+  const processChatRecursiveWithTools = async (
+    localMessages: ChatMessage[],
+    executedToolCallIds: Set<string>,
+    iterationCount: number,
+    maxIterations: number,
+    tools: any[]
+  ): Promise<void> => {
+    // Base case: max iterations reached
+    if (iterationCount >= maxIterations) {
+      return;
+    }
+
+    // Send message to chat API with tools
+    const result = await callChatApiWithTools(localMessages, tools);
+
+    // アシスタントメッセージをローカルメッセージに追加
+    // 非ストリーミング時は UI にも追加（ストリーミング時は UI 更新済み）
+    if (result.content || result.toolCalls.length > 0) {
+      if (!currentSettings.streaming) {
+        addMessage(result.content, "assistant");
+      }
+      localMessages.push({ role: "assistant", content: result.content });
+    }
+
+    // If no tool calls, we're done
+    if (result.toolCalls.length === 0) {
+      return;
+    }
+
+    // Execute tools and get results
+    const toolResults = await executeTools(result.toolCalls, executedToolCallIds);
+
+    // If no new tools were executed, stop
+    if (toolResults.length === 0) {
+      return;
+    }
+
+    // Build messages for next request with tool results
+    const nextMessages = buildMessagesForNextRequest(
+      localMessages,
+      result.content,
+      result.toolCalls,
+      toolResults
+    );
+
+    // Recursive call for next iteration
+    await processChatRecursiveWithTools(nextMessages, executedToolCallIds, iterationCount + 1, maxIterations, tools);
+  };
+
   const sendMessage = async () => {
     if (!chatInput.trim() || activeTab.isLoading) return;
 
@@ -390,9 +497,11 @@ function App() {
     const messageToSend = chatInput.trim();
     const userMessage: ChatMessage = { role: "user", content: messageToSend };
 
-    // Build initial messages with system message containing tool info
-    const systemMessage = buildSystemMessageWithTools(availableTools);
-    const localMessages: ChatMessage[] = [systemMessage, userMessage];
+    // Build messages with user message only (tools are passed separately to API)
+    const localMessages: ChatMessage[] = [userMessage];
+    
+    // Convert MCP tools to OpenAI format
+    const openaiTools = convertToOpenAITools(availableTools);
     
     // Add user message to UI
     addMessage(messageToSend, "user");
@@ -402,8 +511,8 @@ function App() {
       const executedToolCallIds = new Set<string>();
       const MAX_ITERATIONS = 5;
 
-      // Start recursive chat processing
-      await processChatRecursive(localMessages, executedToolCallIds, 0, MAX_ITERATIONS);
+      // Start recursive chat processing with tools
+      await processChatRecursiveWithTools(localMessages, executedToolCallIds, 0, MAX_ITERATIONS, openaiTools);
     } catch (error: any) {
       addMessage(error.message, "error");
     } finally {

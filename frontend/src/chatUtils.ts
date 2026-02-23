@@ -33,6 +33,7 @@ export interface SendMessageOptions {
   azureDeployment: string;
   streaming: boolean;
   mcpEnabled: boolean;
+  tools?: any[];
 }
 
 export interface SendMessageResult {
@@ -84,13 +85,21 @@ async function sendToOpenAI(
     dangerouslyAllowBrowser: true
   });
 
+  // Build request body
+  const requestBody: any = {
+    model: options.model,
+    messages: toOpenAIMessages(messages),
+    stream: options.streaming
+  };
+
+  // Add tools if provided
+  if (options.tools && options.tools.length > 0) {
+    requestBody.tools = options.tools;
+  }
+
   if (options.streaming && callbacks?.onContent) {
     // ストリーミング処理
-    const stream = await openai.chat.completions.create({
-      model: options.model,
-      messages: toOpenAIMessages(messages),
-      stream: true
-    });
+    const stream: any = await openai.chat.completions.create({ ...requestBody, stream: true });
 
     let fullContent = '';
     const toolCallsMap = new Map<string, { id: string; name: string; arguments: string }>();
@@ -136,10 +145,7 @@ async function sendToOpenAI(
   } else {
     // 非ストリーミング処理
     console.log('[sendToOpenAI] calling non-streaming API...');
-    const response = await openai.chat.completions.create({
-      model: options.model,
-      messages: toOpenAIMessages(messages)
-    });
+    const response = await openai.chat.completions.create(requestBody);
 
     const message = response.choices[0]?.message;
     const result = {
@@ -184,13 +190,21 @@ async function sendToAzureOpenAI(
     dangerouslyAllowBrowser: true
   });
 
+  // Build request body
+  const requestBody: any = {
+    model: options.model,
+    messages: toOpenAIMessages(messages),
+    stream: options.streaming
+  };
+
+  // Add tools if provided
+  if (options.tools && options.tools.length > 0) {
+    requestBody.tools = options.tools;
+  }
+
   if (options.streaming && callbacks?.onContent) {
     // ストリーミング処理
-    const stream = await openai.chat.completions.create({
-      model: options.model,
-      messages: toOpenAIMessages(messages),
-      stream: true
-    });
+    const stream: any = await openai.chat.completions.create({ ...requestBody, stream: true });
 
     let fullContent = '';
     const toolCallsMap = new Map<string, { id: string; name: string; arguments: string }>();
@@ -234,10 +248,7 @@ async function sendToAzureOpenAI(
     return result;
   } else {
     // 非ストリーミング処理
-    const response = await openai.chat.completions.create({
-      model: options.model,
-      messages: toOpenAIMessages(messages)
-    });
+    const response = await openai.chat.completions.create(requestBody);
 
     const message = response.choices[0]?.message;
     const result = {
@@ -564,11 +575,42 @@ export interface McpToolInfo {
 }
 
 /**
+ * Convert MCP tools to OpenAI tool format
+ */
+export function convertToOpenAITools(tools: McpToolInfo[]): any[] {
+  return tools.map(tool => {
+    let parameters = { type: 'object' as const, properties: {} as Record<string, any>, required: [] as string[] };
+    
+    if (tool.inputSchemaJson) {
+      try {
+        const schema = JSON.parse(tool.inputSchemaJson);
+        parameters = {
+          type: 'object',
+          properties: schema.properties || {},
+          required: schema.required || []
+        };
+      } catch (e) {
+        console.error('[convertToOpenAITools] Error parsing schema:', e);
+      }
+    }
+    
+    return {
+      type: 'function' as const,
+      function: {
+        name: tool.name,
+        description: tool.description || '',
+        parameters
+      }
+    };
+  });
+}
+
+/**
  * Fetch available MCP tools from the server
  */
 export async function getAvailableTools(): Promise<McpToolInfo[]> {
   try {
-    const response = await fetch('/api/mcp/tools');
+    const response = await fetch('http://localhost:30078/api/mcp/tools');
     if (!response.ok) {
       return [];
     }
