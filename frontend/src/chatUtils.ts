@@ -560,7 +560,7 @@ export function buildMessagesForNextRequest(
 export interface McpToolInfo {
   name: string;
   description: string;
-  inputSchema: any;
+  inputSchemaJson?: string;
 }
 
 /**
@@ -589,11 +589,20 @@ export function buildSystemMessageWithTools(tools: McpToolInfo[], customSystemMe
   if (tools.length > 0) {
     toolDescription = '\n\n## 利用可能なツール\n\n' +
       tools.map(tool => {
-        const params = tool.inputSchema?.properties ? 
-          Object.entries(tool.inputSchema.properties as Record<string, any>)
-            .map(([key, value]: [string, any]) => `  - ${key}: ${(value as any).type || 'any'} - ${(value as any).description || ''}`)
-            .join('\n')
-          : 'パラメータなし';
+        let params = 'パラメータなし';
+        
+        if (tool.inputSchemaJson) {
+          try {
+            const schema = JSON.parse(tool.inputSchemaJson);
+            if (schema.properties) {
+              params = Object.entries(schema.properties)
+                .map(([key, value]: [string, any]) => `  - ${key}: ${value.type || 'any'} - ${value.description || ''}`)
+                .join('\n');
+            }
+          } catch (e) {
+            params = 'パラメータ情報なし';
+          }
+        }
         
         return `### ${tool.name}\n${tool.description || '説明なし'}\n\nパラメータ:\n${params}`;
       }).join('\n\n');

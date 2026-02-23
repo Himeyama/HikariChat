@@ -18,7 +18,7 @@ public class McpToolDefinition
 {
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
-    public JsonElement InputSchema { get; set; }
+    public string? InputSchemaJson { get; set; }
 }
 
 /// <summary>
@@ -159,10 +159,9 @@ public class McpClientWrapper : IDisposable
                                     {
                                         Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                         Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                        InputSchema = schemaProp != null ?
-                                            JsonSerializer.Deserialize<JsonElement>(
-                                                JsonSerializer.Serialize(schemaProp.GetValue(tool)))
-                                            : default
+                                        InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
+                                            System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                            null
                                     };
                                     Log($"Found tool: {toolDef.Name} - {toolDef.Description}");
                                     tools.Add(toolDef);
@@ -187,10 +186,9 @@ public class McpClientWrapper : IDisposable
                                     {
                                         Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                         Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                        InputSchema = schemaProp != null ?
-                                            JsonSerializer.Deserialize<JsonElement>(
-                                                JsonSerializer.Serialize(schemaProp.GetValue(tool)))
-                                            : default
+                                        InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
+                                            System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                            null
                                     };
                                     Log($"Found tool: {toolDef.Name}");
                                     tools.Add(toolDef);
@@ -241,10 +239,9 @@ public class McpClientWrapper : IDisposable
                                 {
                                     Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                     Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                    InputSchema = schemaProp != null ?
-                                        JsonSerializer.Deserialize<JsonElement>(
-                                            JsonSerializer.Serialize(schemaProp.GetValue(tool)))
-                                        : default
+                                    InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
+                                        System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                        null
                                 };
                                 Log($"Found tool: {toolDef.Name} - {toolDef.Description}");
                                 tools.Add(toolDef);
@@ -269,10 +266,9 @@ public class McpClientWrapper : IDisposable
                                 {
                                     Name = nameProp?.GetValue(tool)?.ToString() ?? "",
                                     Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                                    InputSchema = schemaProp != null ?
-                                        JsonSerializer.Deserialize<JsonElement>(
-                                            JsonSerializer.Serialize(schemaProp.GetValue(tool)))
-                                        : default
+                                    InputSchemaJson = schemaProp?.GetValue(tool) != null ? 
+                                        System.Text.Json.JsonSerializer.Serialize(schemaProp.GetValue(tool)) : 
+                                        null
                                 };
                                 Log($"Found tool: {toolDef.Name}");
                                 tools.Add(toolDef);
