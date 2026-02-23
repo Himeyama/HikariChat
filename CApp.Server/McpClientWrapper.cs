@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
@@ -180,7 +181,14 @@ public class McpClientWrapper : IDisposable
                                 {
                                     var nameProp = tool.GetType().GetProperty("Name");
                                     var descProp = tool.GetType().GetProperty("Description");
-                                    var schemaProp = tool.GetType().GetProperty("InputSchema");
+                                    
+                                    // Try multiple possible property names for schema
+                                    var schemaProp = tool.GetType().GetProperty("InputSchema") 
+                                        ?? tool.GetType().GetProperty("Parameters")
+                                        ?? tool.GetType().GetProperty("Input");
+
+                                    // Log all properties for debugging
+                                    Log($"Tool properties: {string.Join(", ", tool.GetType().GetProperties().Select(p => p.Name))}");
 
                                     var toolDef = new McpToolDefinition
                                     {
@@ -233,7 +241,14 @@ public class McpClientWrapper : IDisposable
                             {
                                 var nameProp = tool.GetType().GetProperty("Name");
                                 var descProp = tool.GetType().GetProperty("Description");
-                                var schemaProp = tool.GetType().GetProperty("InputSchema");
+                                
+                                // Try multiple possible property names for schema
+                                var schemaProp = tool.GetType().GetProperty("InputSchema") 
+                                    ?? tool.GetType().GetProperty("Parameters")
+                                    ?? tool.GetType().GetProperty("Input");
+
+                                // Log all properties for debugging
+                                Log($"Tool properties: {string.Join(", ", tool.GetType().GetProperties().Select(p => p.Name))}");
 
                                 var toolDef = new McpToolDefinition
                                 {
@@ -260,7 +275,14 @@ public class McpClientWrapper : IDisposable
                             {
                                 var nameProp = tool.GetType().GetProperty("Name");
                                 var descProp = tool.GetType().GetProperty("Description");
-                                var schemaProp = tool.GetType().GetProperty("InputSchema");
+                                
+                                // Try multiple possible property names for schema
+                                var schemaProp = tool.GetType().GetProperty("InputSchema") 
+                                    ?? tool.GetType().GetProperty("Parameters")
+                                    ?? tool.GetType().GetProperty("Input");
+
+                                // Log all properties for debugging
+                                Log($"Tool properties: {string.Join(", ", tool.GetType().GetProperties().Select(p => p.Name))}");
 
                                 var toolDef = new McpToolDefinition
                                 {
