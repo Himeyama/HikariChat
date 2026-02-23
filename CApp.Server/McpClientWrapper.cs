@@ -301,7 +301,7 @@ public class McpClientWrapper : IDisposable
         if (_client == null) throw new InvalidOperationException("Not connected");
 
         Dictionary<string, object?> argsDict = new Dictionary<string, object?>();
-        
+
         if (arguments.ValueKind == JsonValueKind.Object)
         {
             foreach (JsonProperty prop in arguments.EnumerateObject())
@@ -309,9 +309,14 @@ public class McpClientWrapper : IDisposable
                 argsDict[prop.Name] = JsonSerializer.Deserialize<object?>(prop.Value.GetRawText());
             }
         }
+        else if (arguments.ValueKind == JsonValueKind.Undefined || arguments.ValueKind == JsonValueKind.Null)
+        {
+            // 引数が指定されていない場合は空の辞書を使用
+            argsDict = new Dictionary<string, object?>();
+        }
 
         // リフレクションを使って CallToolAsync を呼び出し
-        MethodInfo? callToolMethod = _client.GetType().GetMethod("CallToolAsync", 
+        MethodInfo? callToolMethod = _client.GetType().GetMethod("CallToolAsync",
             [typeof(string), typeof(Dictionary<string, object?>), typeof(CancellationToken)]);
         
         if (callToolMethod != null)

@@ -316,9 +316,10 @@
 .chat-input-area button {
     grid-row: 1 / 2;
     grid-column: 1 / 2;
-    width: 64px;
+    width: 40px;
     border-radius: var(--radius-6);
     margin: auto 8px 8px auto;
+    font-family: 'Segoe Fluent Icons' !important;
 }
 
 .title-bar-controls {

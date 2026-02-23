@@ -681,9 +681,7 @@ function App() {
                   size="3"
                   onClick={sendMessage}
                   disabled={!chatInput.trim() || activeTab.isLoading}
-                >
-                  送信
-                </Button>
+                >&#xE74A;</Button>
               </Box>
             </Tabs.Content>
           ))}
