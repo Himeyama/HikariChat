@@ -510,7 +510,7 @@ export async function executeMcpTool(
 
   try {
     // Try HTTP API first (C# backend)
-    const response = await fetch('http://localhost:30078/api/mcp/tools/call', {
+    const response = await fetch('http://localhost:30078/api/mcp/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, arguments: args }),
