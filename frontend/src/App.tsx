@@ -109,7 +109,7 @@ function App() {
     updateModelDisplay();
     updateMcpStatusDisplay();
     requestMcpStatus();
-    loadAvailableTools();
+    // loadAvailableTools() は MCP 準備完了時に mcpStatus メッセージから呼び出す
 
     const handleWebviewMessage = (event: any) => {
       try {
@@ -121,6 +121,11 @@ function App() {
           // updateModelDisplay and updateMcpStatusDisplay will be called via useEffect due to currentSettings change
         } else if (parsedData.method === "mcpStatus") {
           updateMcpStatusDisplay(parsedData);
+          // MCP が準備完了したらツール一覧を取得
+          if (parsedData.enabled && parsedData.activeCount === parsedData.totalCount && parsedData.totalCount > 0) {
+            console.log('[MCP] MCP is ready, loading tools...');
+            loadAvailableTools();
+          }
         }
       } catch (e) {
         console.error("Error parsing webview message:", e, "Original message:", event.data);
@@ -196,9 +201,14 @@ function App() {
       setAvailableTools([]);
       return;
     }
-    const tools = await getAvailableTools();
-    setAvailableTools(tools);
-    console.log('[loadAvailableTools] Loaded tools:', tools);
+    try {
+      const tools = await getAvailableTools();
+      console.log('[loadAvailableTools] Loaded tools:', tools);
+      setAvailableTools(tools);
+    } catch (error) {
+      console.error('[loadAvailableTools] Error:', error);
+      setAvailableTools([]);
+    }
   };
 
   const openSettingsWindow = () => {
