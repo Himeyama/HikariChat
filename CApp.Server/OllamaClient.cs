@@ -27,7 +27,7 @@ public class OllamaClient
     }
 
     /// <summary>
-    /// Ollama が利用可能かチェチE��
+    /// Ollama が利用可能かチェチE��
     /// </summary>
     public async Task<bool> IsAvailableAsync()
     {
@@ -42,9 +42,6 @@ public class OllamaClient
         }
     }
 
-    /// <summary>
-    /// モチE��一覧を取征E
-    /// </summary>
     public async Task<List<string>> GetModelsAsync()
     {
         try
@@ -59,7 +56,7 @@ public class OllamaClient
         }
         catch
         {
-            // エラー時�E空リストを返す
+            // エラー時�E空リストを返す
         }
         return [];
     }
@@ -80,7 +77,7 @@ public class OllamaTagsResponse
 }
 
 /// <summary>
-/// Ollama モチE��惁E��
+/// Ollama モチE��惁E��
 /// </summary>
 public class OllamaModel
 {

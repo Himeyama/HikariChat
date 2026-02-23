@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using ModelContextProtocol.Client;
+
+#pragma warning disable CS8602
 
 namespace CApp.Server;
 
@@ -80,7 +80,10 @@ public class McpClientWrapper : IDisposable
 
         var transport = new StdioClientTransport(transportOptions);
         Console.WriteLine($"[{_name}] Creating MCP client transport...");
-        _client = await McpClient.CreateAsync(transport, cancellationToken: _cts.Token);
+#pragma warning disable CS8602
+        var client = await McpClient.CreateAsync(transport, cancellationToken: _cts.Token).ConfigureAwait(false);
+#pragma warning restore CS8602
+        _client = client!;
         Console.WriteLine($"[{_name}] MCP client created successfully");
     }
 
@@ -196,3 +199,5 @@ public class McpClientWrapper : IDisposable
         _cts.Dispose();
     }
 }
+
+#pragma warning restore CS8602

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using CApp.Server;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
@@ -18,11 +19,11 @@ namespace CApp;
 public sealed partial class MainWindow : Window
 {
     OverlappedPresenter? presenter;
-    CApp.OllamaClient? _ollamaClient;
+    OllamaClient? _ollamaClient;
 
     public string ServerUri { get; set; } = "";
 
-    public CApp.Server.ApiSettings CurrentApiSettings { get; private set; }
+    public ApiSettings CurrentApiSettings { get; private set; }
 
     /// <summary>
     /// Ollama が利用可能ぁE
@@ -38,7 +39,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        CurrentApiSettings = new CApp.Server.ApiSettings(); // Initialize to prevent CS8618 warning
+        CurrentApiSettings = new ApiSettings(); // Initialize to prevent CS8618 warning
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
@@ -52,7 +53,7 @@ public sealed partial class MainWindow : Window
 
     async void InitializeCurrentApiSettings()
     {
-        var loadedSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
+        ApiSettings loadedSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
         if (loadedSettings != null)
         {
             CurrentApiSettings = loadedSettings; // Update with loaded settings
@@ -70,7 +71,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            _ollamaClient = new CApp.OllamaClient();
+            _ollamaClient = new OllamaClient();
             IsOllamaAvailable = await _ollamaClient.IsAvailableAsync();
             if (IsOllamaAvailable)
             {
@@ -108,21 +109,22 @@ public sealed partial class MainWindow : Window
     async void InitializePreview()
     {
         WebView2 preview = Preview;
-        
+
         // フロントエンドのパスを取得
         string assetsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "EditorUI");
         string indexPath = Path.Combine(assetsPath, "index.html");
-        
+
         // CoreWebView2 を初期化
         if (preview.CoreWebView2 == null)
         {
-            var env = await CoreWebView2Environment.CreateAsync();
+            CoreWebView2Environment env = await CoreWebView2Environment.CreateAsync();
             await preview.EnsureCoreWebView2Async(env);
         }
-        
+
         InitializeWindowPresenter();
-        if (preview.CoreWebView2 != null)
-            preview.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+#pragma warning disable CS8602
+        preview.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+#pragma warning restore CS8602
         
         // フロントエンドを読み込む
         if (File.Exists(indexPath))
@@ -204,7 +206,7 @@ public sealed partial class MainWindow : Window
     {
         if (Application.Current is App app)
         {
-            var (enabled, activeCount, totalCount) = app.GetMcpStatus();
+            (bool enabled, int activeCount, int totalCount) = app.GetMcpStatus();
             var status = new
             {
                 method = "mcpStatus",
@@ -218,7 +220,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// WebView2 で JavaScript を実行する（テスト�E動化用�E�E
+    /// WebView2 で JavaScript を実行する
     /// </summary>
     public async Task<string> ExecuteScriptAsync(string script)
     {
@@ -246,7 +248,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public async Task<string?> GetChatHistoryAsync()
     {
-        return await ExecuteScriptAsync("JSON.stringify(window.chrome.webview.targetEnvironment?.tabs || {})");
+        var result = await ExecuteScriptAsync("JSON.stringify(window.chrome.webview.targetEnvironment?.tabs || {})");
+        return string.IsNullOrEmpty(result) ? null : result;
     }
 
     void InitializeWindowPresenter()

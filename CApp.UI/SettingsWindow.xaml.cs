@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using CApp.Server;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -47,7 +48,7 @@ public sealed partial class SettingsWindow : Window
         InitializeSettingsWebView();
     }
 
-    void MainWindow_Closed(object? sender, Microsoft.UI.Xaml.WindowEventArgs e)
+    void MainWindow_Closed(object? sender, WindowEventArgs e)
     {
         if (mainWindow != null)
         {
@@ -75,7 +76,7 @@ public sealed partial class SettingsWindow : Window
         // CoreWebView2 を初期化
         if (settingsWebView.CoreWebView2 == null)
         {
-            var env = await CoreWebView2Environment.CreateAsync();
+            CoreWebView2Environment env = await CoreWebView2Environment.CreateAsync();
             await settingsWebView.EnsureCoreWebView2Async(env);
         }
 
@@ -160,7 +161,7 @@ public sealed partial class SettingsWindow : Window
         {
             LogInfo($"SaveSettingsToJsonAsync called");
 
-            var settings = JsonSerializer.Deserialize<CApp.Server.ApiSettings>(settingsJson);
+            ApiSettings? settings = JsonSerializer.Deserialize<ApiSettings>(settingsJson);
 
             if (settings != null)
             {

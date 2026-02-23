@@ -33,7 +33,7 @@ public class OllamaClient
     {
         try
         {
-            var response = await _httpClient.GetAsync("/api/tags");
+            HttpResponseMessage response = await _httpClient.GetAsync("/api/tags");
             return response.IsSuccessStatusCode;
         }
         catch
@@ -49,7 +49,7 @@ public class OllamaClient
     {
         try
         {
-            var response = await _httpClient.GetAsync("/api/tags");
+            HttpResponseMessage response = await _httpClient.GetAsync("/api/tags");
             if (response.IsSuccessStatusCode)
             {
                 string json = await response.Content.ReadAsStringAsync();

@@ -1,14 +1,17 @@
 using System;
 using System.Threading.Tasks;
+using CApp.Server;
 using Microsoft.UI.Xaml;
 
 namespace CApp;
 
+#pragma warning disable CS8603, CS8619
+
 public partial class App : Application
 {
     private MainWindow? _mainWindow;
-    private Server.McpManager? _mcpManager;
-    private Server.SimpleApiServer? _apiServer;
+    private McpManager? _mcpManager;
+    private SimpleApiServer? _apiServer;
 
     public App()
     {
@@ -17,21 +20,29 @@ public partial class App : Application
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _mcpManager = new Server.McpManager();
-        
+        _mcpManager = new McpManager();
+
         // 設定を読み込んで MCP サーバーを起動
-        var settings = await Server.ApiSettingsManager.LoadAsync();
+        ApiSettings settings = await ApiSettingsManager.LoadAsync();
         LogInfo($"OnLaunched: Loading settings. McpEnabled={settings.McpEnabled}, McpServers.Count={settings.McpServers.Count}");
         await _mcpManager.UpdateSettingsAsync(settings);
         LogInfo($"OnLaunched: MCP Manager updated. Status={_mcpManager.GetStatus()}");
-        
+
         // API サーバーを起動（McpManager を共有）
-        _apiServer = new Server.SimpleApiServer("http://localhost:51234/", _mcpManager);
-        _apiServer.ExecuteScriptAsync = (script) => _mainWindow?.ExecuteScriptAsync(script);
-        _apiServer.GetChatHistoryAsync = () => _mainWindow?.GetChatHistoryAsync()!;
+        _apiServer = new SimpleApiServer("http://localhost:51234/", _mcpManager)
+        {
+            GetChatHistoryAsync = () =>
+            {
+                if (_mainWindow == null) return Task.FromResult<string?>(null);
+                return _mainWindow.GetChatHistoryAsync();
+            }
+        };
+        if(_mainWindow != null){
+            _apiServer.ExecuteScriptAsync = (script) => _mainWindow?.ExecuteScriptAsync(script);
+        }
         _apiServer.Start();
         LogInfo($"OnLaunched: API Server started");
-        
+
         _mainWindow = new MainWindow();
         _mainWindow.Activate();
         LogInfo($"OnLaunched: MainWindow activated");
@@ -44,7 +55,7 @@ public partial class App : Application
         return _mcpManager?.GetStatus() ?? (false, 0, 0);
     }
 
-    public async Task UpdateMcpSettingsAsync(Server.ApiSettings settings)
+    public async Task UpdateMcpSettingsAsync(ApiSettings settings)
     {
         if (_mcpManager != null)
         {
@@ -54,9 +65,11 @@ public partial class App : Application
 
     private void LogInfo(string message)
     {
-        var logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log");
-        var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-        var line = $"{time} [INFO] {message}{Environment.NewLine}";
+        string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log");
+        string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        string line = $"{time} [INFO] {message}{Environment.NewLine}";
         System.IO.File.AppendAllText(logPath, line, System.Text.Encoding.UTF8);
     }
 }
+
+#pragma warning restore CS8603, CS8619

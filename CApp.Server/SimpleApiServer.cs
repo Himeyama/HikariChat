@@ -28,6 +28,15 @@ public class SimpleApiServer : IDisposable
     private readonly McpManager? _mcpManager;
     private ApiSettings _currentSettings = new();
 
+#pragma warning disable CS8618
+    public SimpleApiServer(string prefix, McpManager? mcpManager = null)
+#pragma warning restore CS8618
+    {
+        _listener = new HttpListener();
+        _listener.Prefixes.Add(prefix);
+        _mcpManager = mcpManager;
+    }
+
     // UI から注入されるデリゲート
     public Func<string, Task<string?>>? ExecuteScriptAsync { get; set; }
     public Func<Task<string?>>? GetChatHistoryAsync { get; set; }
@@ -66,22 +75,18 @@ public class SimpleApiServer : IDisposable
         public string? ToolCallId { get; set; } // tool response の tool_call_id 用
     }
 
-
-    public SimpleApiServer(string prefix, McpManager? mcpManager = null)
-    {
-        _listener = new HttpListener();
-        _listener.Prefixes.Add(prefix);
-    }
-
     public async Task InitializeSettingsAsync(ApiSettings settings)
     {
         _currentSettings = settings;
-        await _mcpManager.UpdateSettingsAsync(settings);
+        if (_mcpManager != null)
+        {
+            await _mcpManager.UpdateSettingsAsync(settings);
+        }
     }
 
     public (bool enabled, int activeCount, int totalCount) GetMcpStatus()
     {
-        return _mcpManager.GetStatus();
+        return _mcpManager?.GetStatus() ?? (false, 0, 0);
     }
 
     public void Start()
@@ -281,6 +286,13 @@ public class SimpleApiServer : IDisposable
             DebugLogger.Mcp($"Tool execution requested: {toolName}");
             DebugLogger.Mcp($"Tool arguments: {arguments}");
             Console.WriteLine($"[MCP] Executing tool: {toolName}");
+
+            if (_mcpManager == null)
+            {
+                res.StatusCode = (int)HttpStatusCode.InternalServerError;
+                await WriteJsonAsync(res, new { error = "MCP manager not initialized" });
+                return;
+            }
 
             var result = await _mcpManager.CallToolAsync(toolName, arguments);
 
@@ -489,11 +501,15 @@ public class SimpleApiServer : IDisposable
 
             // MCP ツールを取得
             List<object>? mcpTools = null;
-            if (mcpEnabled)
+            if (mcpEnabled && _mcpManager != null)
             {
                 mcpTools = await _mcpManager.GetOpenAiToolsAsync();
                 DebugLogger.Mcp($"Injected {mcpTools.Count} tools for API request");
                 Console.WriteLine($"[MCP] Injected {mcpTools.Count} tools");
+            }
+            else if (mcpEnabled && _mcpManager == null)
+            {
+                Console.WriteLine($"[MCP] MCP is enabled but _mcpManager is null");
             }
 
             if (streaming)
