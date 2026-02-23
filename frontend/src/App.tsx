@@ -226,6 +226,8 @@ function App() {
     let accumulatedContent = '';
     let messageAdded = false;
 
+    console.log('[callChatApi] Sending messages:', JSON.stringify(messages, null, 2));
+
     return new Promise((resolve, reject) => {
       sendChatMessage(messages, {
         apiKey: currentSettings.apiKey,

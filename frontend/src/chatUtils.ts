@@ -603,8 +603,13 @@ export function buildSystemMessageWithTools(tools: McpToolInfo[], customSystemMe
 
   const baseMessage = 'あなたは有能なアシスタントです。ツールを使用してユーザーのタスクを支援してください。';
   
+  const content = baseMessage + toolDescription + (customSystemMessage ? `\n\n${customSystemMessage}` : '');
+  
+  console.log('[buildSystemMessageWithTools] Tools:', tools);
+  console.log('[buildSystemMessageWithTools] System message:', content);
+  
   return {
     role: 'system',
-    content: baseMessage + toolDescription + (customSystemMessage ? `\n\n${customSystemMessage}` : '')
+    content
   };
 }
