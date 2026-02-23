@@ -56,62 +56,62 @@ function loadSettings(): Settings {
 const endpoints = {
     openai: {
         chat_completions: "https://api.openai.com/v1/chat/completions",
-        responses: "https://api.openai.com/v1/responses",
-        anthropic: "",
+        azure: "",
+        claude: "",
         gemini: ""
     },
     azure_openai: {
         chat_completions: "https://{resource}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version=2024-08-01-preview",
-        responses: "",
-        anthropic: "",
+        azure: "https://{resource}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version=2024-08-01-preview",
+        claude: "",
         gemini: ""
     },
     gemini: {
         chat_completions: "",
-        responses: "",
-        anthropic: "",
+        azure: "",
+        claude: "",
         gemini: "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     },
     grok: {
         chat_completions: "https://api.x.ai/v1/chat/completions",
-        responses: "",
-        anthropic: "",
+        azure: "",
+        claude: "",
         gemini: ""
     },
     anthropic: {
         chat_completions: "",
-        responses: "",
-        anthropic: "https://api.anthropic.com/v1/messages",
+        azure: "",
+        claude: "https://api.anthropic.com/v1/messages",
         gemini: ""
     },
     ollama: {
         chat_completions: "http://localhost:11434/v1/chat/completions",
-        responses: "",
-        anthropic: "",
+        azure: "",
+        claude: "",
         gemini: ""
     },
     custom: {
         chat_completions: "",
-        responses: "",
-        anthropic: "",
+        azure: "",
+        claude: "",
         gemini: ""
     }
 };
 
-type ApiType = 'chat_completions' | 'responses' | 'anthropic' | 'gemini';
+type ApiType = 'azure' | 'gemini' | 'claude' | 'chat_completions';
 type EndpointPreset = 'openai' | 'azure_openai' | 'gemini' | 'grok' | 'anthropic' | 'ollama' | 'custom';
 
 const compatibleEndpoints = {
     chat_completions: ["openai", "azure_openai", "grok", "ollama", "custom"],
-    responses: ["openai", "custom"],
-    anthropic: ["anthropic", "custom"],
+    azure: ["azure_openai", "custom"],
+    claude: ["anthropic", "custom"],
     gemini: ["gemini", "custom"]
 };
 
 const apiTypeDescriptions: Record<ApiType, string> = {
-    chat_completions: "OpenAI 互換の API エンドポイントを使用します",
-    responses: "OpenAI Responses API を使用します",
-    anthropic: "Anthropic Claude API を使用します",
+    chat_completions: "OpenAI 互換の API エンドポイントを使用します（OpenAI、Grok、Ollama など）",
+    azure: "Azure OpenAI Service を使用します",
+    claude: "Anthropic Claude API を使用します",
     gemini: "Google Gemini API を使用します"
 };
 
@@ -314,8 +314,8 @@ function SettingsApp() {
                                 <Select.Trigger id="apiType" />
                                 <Select.Content>
                                     <Select.Item value="chat_completions">Chat Completions API (OpenAI 互換)</Select.Item>
-                                    <Select.Item value="responses">Responses API (OpenAI)</Select.Item>
-                                    <Select.Item value="anthropic">Anthropic API</Select.Item>
+                                    <Select.Item value="azure">Azure OpenAI</Select.Item>
+                                    <Select.Item value="claude">Anthropic Claude API</Select.Item>
                                     <Select.Item value="gemini">Google Gemini API</Select.Item>
                                 </Select.Content>
                             </Select.Root>

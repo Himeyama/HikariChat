@@ -233,10 +233,7 @@ async function sendToOpenAI(
 ): Promise<SendMessageResult> {
   const openai = new OpenAI({
     apiKey: options.apiKey,
-    baseURL:
-      options.endpointPreset === 'custom'
-        ? options.apiEndpoint.replace('/chat/completions', '')
-        : undefined,
+    baseURL: options.apiEndpoint.replace('/chat/completions', ''),
     dangerouslyAllowBrowser: true,
   });
 
