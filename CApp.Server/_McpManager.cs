@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using ModelContextProtocol.Client;
 
 namespace CApp.Server;
 
@@ -20,8 +19,8 @@ public class McpManager : IDisposable
 
     private static void Log(string message)
     {
-        var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-        var line = $"{time} [INFO] {message}{Environment.NewLine}";
+        string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        string line = $"{time} [INFO] {message}{Environment.NewLine}";
         File.AppendAllText(LogPath, line, Encoding.UTF8);
     }
 
@@ -34,8 +33,8 @@ public class McpManager : IDisposable
         _settings = settings;
 
         // 削除されたサーバーを停止
-        var removed = _clients.Keys.Except(settings.McpServers.Keys).ToList();
-        foreach (var name in removed)
+        List<string> removed = _clients.Keys.Except(settings.McpServers.Keys).ToList();
+        foreach (string name in removed)
         {
             Log($"Stopping removed MCP server: {name}");
             Console.WriteLine($"[McpManager] Stopping removed MCP server: {name}");
@@ -48,7 +47,7 @@ public class McpManager : IDisposable
         {
             Log($"MCP is enabled. Starting {settings.McpServers.Count} server(s)...");
             Console.WriteLine($"[McpManager] MCP is enabled. Starting {settings.McpServers.Count} server(s)...");
-            foreach (var kv in settings.McpServers)
+            foreach (KeyValuePair<string, McpServerConfig> kv in settings.McpServers)
             {
                 if (!_clients.ContainsKey(kv.Key))
                 {
@@ -56,7 +55,7 @@ public class McpManager : IDisposable
                     {
                         Log($"Starting MCP server: {kv.Key} (Command: {kv.Value.Command}, Args: {string.Join(" ", kv.Value.Args)})");
                         Console.WriteLine($"[McpManager] Starting MCP server: {kv.Key} (Command: {kv.Value.Command}, Args: {string.Join(" ", kv.Value.Args)})");
-                        var client = new McpClientWrapper(kv.Key, kv.Value);
+                        McpClientWrapper client = new McpClientWrapper(kv.Key, kv.Value);
                         await client.ConnectAsync();
                         _clients[kv.Key] = client;
                         Log($"MCP server started: {kv.Key}");
@@ -80,7 +79,7 @@ public class McpManager : IDisposable
 
     public void StopAll()
     {
-        foreach (var client in _clients.Values)
+        foreach (McpClientWrapper client in _clients.Values)
         {
             client.Dispose();
         }
@@ -89,15 +88,15 @@ public class McpManager : IDisposable
 
     public async Task<List<object>> GetOpenAiToolsAsync()
     {
-        var allTools = new List<object>();
+        List<object> allTools = new List<object>();
         if (!_settings.McpEnabled) return allTools;
 
-        foreach (var client in _clients.Values)
+        foreach (McpClientWrapper client in _clients.Values)
         {
             try
             {
-                var tools = await client.ListToolsAsync();
-                foreach (var tool in tools)
+                List<McpToolDefinition> tools = await client.ListToolsAsync();
+                foreach (McpToolDefinition tool in tools)
                 {
                     string namespacedName = $"{client.Name}_{tool.Name}";
 
@@ -131,7 +130,7 @@ public class McpManager : IDisposable
         string serverName = namespacedName.Substring(0, separatorIndex);
         string originalName = namespacedName.Substring(separatorIndex + 1);
 
-        if (_clients.TryGetValue(serverName, out var client))
+        if (_clients.TryGetValue(serverName, out McpClientWrapper? client))
         {
             return await client.CallToolAsync(originalName, arguments);
         }

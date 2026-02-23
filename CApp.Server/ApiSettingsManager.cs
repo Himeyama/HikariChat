@@ -25,8 +25,8 @@ public static class ApiSettingsManager
         {
             DebugLogger.Settings("SaveAsync called");
             DebugLogger.Settings($"Settings path: {SettingsPath}");
-            
-            var directory = Path.GetDirectoryName(SettingsPath);
+
+            string? directory = Path.GetDirectoryName(SettingsPath);
             DebugLogger.Settings($"Directory: {directory}");
             
             if (directory != null && !Directory.Exists(directory))
@@ -35,13 +35,13 @@ public static class ApiSettingsManager
                 Directory.CreateDirectory(directory);
             }
 
-            var options = new JsonSerializerOptions
+            JsonSerializerOptions options = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
-            var json = JsonSerializer.Serialize(settings, options);
+            string json = JsonSerializer.Serialize(settings, options);
             DebugLogger.Settings($"Saving JSON: {json}");
             
             await File.WriteAllTextAsync(SettingsPath, json);
@@ -65,10 +65,10 @@ public static class ApiSettingsManager
             
             if (File.Exists(SettingsPath))
             {
-                var json = await File.ReadAllTextAsync(SettingsPath);
+                string json = await File.ReadAllTextAsync(SettingsPath);
                 DebugLogger.Settings($"JSON: {json}");
 
-                var settings = JsonSerializer.Deserialize<ApiSettings>(json);
+                ApiSettings? settings = JsonSerializer.Deserialize<ApiSettings>(json);
                 return settings ?? new ApiSettings();
             }
         }

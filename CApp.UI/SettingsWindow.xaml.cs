@@ -198,7 +198,7 @@ public sealed partial class SettingsWindow : Window
                 isAvailable = mainWindow.IsOllamaAvailable,
                 models = mainWindow.OllamaModels
             };
-            var json = JsonSerializer.Serialize(ollamaInfo);
+            string json = JsonSerializer.Serialize(ollamaInfo);
             SettingsWebView.CoreWebView2?.PostWebMessageAsString(json);
         }
     }

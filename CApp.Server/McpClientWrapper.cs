@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,8 +63,8 @@ public class McpClientWrapper : IDisposable
     public async Task ConnectAsync()
     {
         Console.WriteLine($"[{_name}] Starting process: {_options.Command} {string.Join(" ", _options.Args)}");
-        
-        var transportOptions = new StdioClientTransportOptions
+
+        StdioClientTransportOptions transportOptions = new StdioClientTransportOptions
         {
             Name = _name,
             Command = _options.Command,
@@ -72,16 +73,16 @@ public class McpClientWrapper : IDisposable
 
         if (_options.Env != null)
         {
-            foreach (var kv in _options.Env)
+            foreach (KeyValuePair<string, string> kv in _options.Env)
             {
                 transportOptions.EnvironmentVariables[kv.Key] = kv.Value;
             }
         }
 
-        var transport = new StdioClientTransport(transportOptions);
+        StdioClientTransport transport = new StdioClientTransport(transportOptions);
         Console.WriteLine($"[{_name}] Creating MCP client transport...");
 #pragma warning disable CS8602
-        var client = await McpClient.CreateAsync(transport, cancellationToken: _cts.Token).ConfigureAwait(false);
+        McpClient client = await McpClient.CreateAsync(transport, cancellationToken: _cts.Token).ConfigureAwait(false);
 #pragma warning restore CS8602
         _client = client!;
         Console.WriteLine($"[{_name}] MCP client created successfully");
@@ -90,25 +91,25 @@ public class McpClientWrapper : IDisposable
     public async Task<List<McpToolDefinition>> ListToolsAsync()
     {
         if (_client == null) throw new InvalidOperationException("Not connected");
-        
-        var tools = new List<McpToolDefinition>();
-        
+
+        List<McpToolDefinition> tools = new List<McpToolDefinition>();
+
         // リフレクションを使って ListToolsAsync を呼び出し
-        var listToolsMethod = _client.GetType().GetMethod("ListToolsAsync");
+        MethodInfo? listToolsMethod = _client.GetType().GetMethod("ListToolsAsync");
         if (listToolsMethod != null)
         {
-            var resultTask = listToolsMethod.Invoke(_client, new object[] { _cts.Token }) as Task;
+            Task? resultTask = listToolsMethod.Invoke(_client, new object[] { _cts.Token }) as Task;
             if (resultTask != null)
             {
                 await resultTask.ConfigureAwait(false);
-                var result = resultTask.GetType().GetProperty("Result")?.GetValue(resultTask);
+                object? result = resultTask.GetType().GetProperty("Result")?.GetValue(resultTask);
                 if (result is System.Collections.IEnumerable toolList)
                 {
-                    foreach (var tool in toolList)
+                    foreach (object? tool in toolList)
                     {
-                        var nameProp = tool.GetType().GetProperty("Name");
-                        var descProp = tool.GetType().GetProperty("Description");
-                        var schemaProp = tool.GetType().GetProperty("Parameters");
+                        PropertyInfo? nameProp = tool.GetType().GetProperty("Name");
+                        PropertyInfo? descProp = tool.GetType().GetProperty("Description");
+                        PropertyInfo? schemaProp = tool.GetType().GetProperty("Parameters");
                         
                         tools.Add(new McpToolDefinition
                         {
@@ -130,42 +131,42 @@ public class McpClientWrapper : IDisposable
     {
         if (_client == null) throw new InvalidOperationException("Not connected");
 
-        var argsDict = new Dictionary<string, object?>();
+        Dictionary<string, object?> argsDict = new Dictionary<string, object?>();
         
         if (arguments.ValueKind == JsonValueKind.Object)
         {
-            foreach (var prop in arguments.EnumerateObject())
+            foreach (JsonProperty prop in arguments.EnumerateObject())
             {
                 argsDict[prop.Name] = JsonSerializer.Deserialize<object?>(prop.Value.GetRawText());
             }
         }
 
         // リフレクションを使って CallToolAsync を呼び出し
-        var callToolMethod = _client.GetType().GetMethod("CallToolAsync", 
+        MethodInfo? callToolMethod = _client.GetType().GetMethod("CallToolAsync", 
             new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(CancellationToken) });
         
         if (callToolMethod != null)
         {
-            var result = await (dynamic?)callToolMethod.Invoke(_client, new object[] { name, argsDict, _cts.Token })!;
+            dynamic result = await (dynamic?)callToolMethod.Invoke(_client, new object[] { name, argsDict, _cts.Token })!;
             if (result != null)
             {
-                var contentProp = result.GetType().GetProperty("Content");
-                var isErrorProp = result.GetType().GetProperty("IsError");
-                
-                var toolResult = new McpCallToolResult
+                dynamic contentProp = result.GetType().GetProperty("Content");
+                dynamic isErrorProp = result.GetType().GetProperty("IsError");
+
+                McpCallToolResult toolResult = new McpCallToolResult
                 {
                     IsError = isErrorProp?.GetValue(result) as bool? ?? false
                 };
                 
                 if (contentProp != null)
                 {
-                    var content = contentProp.GetValue(result);
+                    dynamic content = contentProp.GetValue(result);
                     if (content is System.Collections.IEnumerable contentList)
                     {
-                        foreach (var item in contentList)
+                        foreach (object? item in contentList)
                         {
-                            var typeProp = item.GetType().GetProperty("Type");
-                            var textProp = item.GetType().GetProperty("Text");
+                            PropertyInfo? typeProp = item.GetType().GetProperty("Type");
+                            PropertyInfo? textProp = item.GetType().GetProperty("Text");
                             toolResult.Content.Add(new ContentBlock
                             {
                                 Type = typeProp?.GetValue(item)?.ToString() ?? "",
@@ -186,10 +187,10 @@ public class McpClientWrapper : IDisposable
         _cts.Cancel();
         if (_client != null)
         {
-            var disposeAsyncMethod = _client.GetType().GetMethod("DisposeAsync");
+            MethodInfo? disposeAsyncMethod = _client.GetType().GetMethod("DisposeAsync");
             if (disposeAsyncMethod != null)
             {
-                var result = disposeAsyncMethod.Invoke(_client, null);
+                object? result = disposeAsyncMethod.Invoke(_client, null);
                 if (result is ValueTask valueTask)
                 {
                     valueTask.AsTask().Wait();

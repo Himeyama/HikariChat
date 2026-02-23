@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace CApp;
 
 /// <summary>
-/// チE��チE��ログ管琁E
+/// チE��チE��ログ管琁E
 /// </summary>
 public static class DebugLogger
 {
@@ -18,7 +18,7 @@ public static class DebugLogger
     private static readonly object LockObj = new();
 
     /// <summary>
-    /// ログを�E劁E
+    /// ログを�E劁E
     /// </summary>
     public static void Write(string message)
     {
@@ -26,8 +26,8 @@ public static class DebugLogger
         {
             lock (LockObj)
             {
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-                var line = $"[{timestamp}] {message}{Environment.NewLine}";
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                string line = $"[{timestamp}] {message}{Environment.NewLine}";
                 File.AppendAllText(LogFilePath, line, Encoding.UTF8);
             }
         }
@@ -38,7 +38,7 @@ public static class DebugLogger
     }
 
     /// <summary>
-    /// 惁E��ログ
+    /// 惁E��ログ
     /// </summary>
     public static void Info(string message)
     {
@@ -54,7 +54,7 @@ public static class DebugLogger
     }
 
     /// <summary>
-    /// エラーログ�E�スタチE��トレース付き�E�E
+    /// エラーログ�E�スタチE��トレース付き�E�E
     /// </summary>
     public static void Error(string message, Exception ex)
     {

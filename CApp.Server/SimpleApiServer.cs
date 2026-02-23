@@ -294,7 +294,7 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
-            var result = await _mcpManager.CallToolAsync(toolName, arguments);
+            McpCallToolResult result = await _mcpManager.CallToolAsync(toolName, arguments);
 
             DebugLogger.Mcp($"Tool execution completed: {toolName}");
             Console.WriteLine($"[MCP] Tool execution completed: {toolName}");
@@ -304,7 +304,7 @@ public class SimpleApiServer : IDisposable
             string? responseText = null;
             if (result.Content != null && result.Content.Count > 0)
             {
-                var textContent = result.Content.FirstOrDefault(c => c.Type == "text");
+                ContentBlock? textContent = result.Content.FirstOrDefault(c => c.Type == "text");
                 if (textContent != null)
                 {
                     responseText = textContent.Text;
@@ -363,7 +363,7 @@ public class SimpleApiServer : IDisposable
             if (ExecuteScriptAsync != null)
             {
                 Console.WriteLine($"[TestAPI] Executing script via delegate...");
-                var result = await ExecuteScriptAsync(script);
+                string? result = await ExecuteScriptAsync(script);
                 Console.WriteLine($"[TestAPI] Script result: '{result}'");
                 res.StatusCode = (int)HttpStatusCode.OK;
                 res.ContentType = "application/json; charset=utf-8";
@@ -393,7 +393,7 @@ public class SimpleApiServer : IDisposable
         {
             if (GetChatHistoryAsync != null)
             {
-                var history = await GetChatHistoryAsync();
+                string? history = await GetChatHistoryAsync();
                 res.StatusCode = (int)HttpStatusCode.OK;
                 res.ContentType = "application/json; charset=utf-8";
                 await WriteJsonAsync(res, new { history = history ?? "" });
@@ -601,7 +601,7 @@ public class SimpleApiServer : IDisposable
             List<OpenAIChatMessage> apiMessages = new();
             if (frontendMessages != null)
             {
-                foreach (var msg in frontendMessages)
+                foreach (FrontendChatMessage msg in frontendMessages)
                 {
                     // ロールが空のメッセージはスキップ
                     if (string.IsNullOrEmpty(msg.Role))
@@ -631,7 +631,7 @@ public class SimpleApiServer : IDisposable
 
                 if (apiMessages != null) // apiMessages から構築
                 {
-                    foreach (var msg in apiMessages)
+                    foreach (OpenAIChatMessage msg in apiMessages)
                     {
                         if (msg.Role == "system")
                         {
@@ -668,7 +668,7 @@ public class SimpleApiServer : IDisposable
             string requestJson = JsonSerializer.Serialize(requestPayload, _jsonOptions);
             DebugLogger.Api($"Request JSON: {requestJson}");
 
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            using HttpRequestMessage httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
             httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
 
             if (endpointPreset == "azure_openai")
@@ -747,7 +747,7 @@ public class SimpleApiServer : IDisposable
         List<OpenAIChatMessage> apiMessages = new();
         if (frontendMessages != null)
         {
-            foreach (var msg in frontendMessages)
+            foreach (FrontendChatMessage msg in frontendMessages)
             {
                 // ロールが空のメッセージはスキップ
                 if (string.IsNullOrEmpty(msg.Role))
@@ -808,7 +808,7 @@ public class SimpleApiServer : IDisposable
         List<OpenAIChatMessage> apiMessages = new();
         if (frontendMessages != null)
         {
-            foreach (var msg in frontendMessages)
+            foreach (FrontendChatMessage msg in frontendMessages)
             {
                 // ロールが空のメッセージはスキップ
                 if (string.IsNullOrEmpty(msg.Role))
@@ -825,7 +825,7 @@ public class SimpleApiServer : IDisposable
         List<object> inputMessages = new();
         if (apiMessages != null) // apiMessages から構築
         {
-            foreach (var msg in apiMessages)
+            foreach (OpenAIChatMessage msg in apiMessages)
             {
                  // Responses API は特定のフォーマットを期待する可能性があるので、
                  // ここではシンプルに role と content のみを持つメッセージを作成
@@ -864,7 +864,7 @@ public class SimpleApiServer : IDisposable
         List<OpenAIChatMessage> apiMessages = new();
         if (frontendMessages != null)
         {
-            foreach (var msg in frontendMessages)
+            foreach (FrontendChatMessage msg in frontendMessages)
             {
                 // ロールが空のメッセージはスキップ
                 if (string.IsNullOrEmpty(msg.Role))
@@ -883,7 +883,7 @@ public class SimpleApiServer : IDisposable
 
         if (apiMessages != null) // apiMessages から構築
         {
-            foreach (var msg in apiMessages)
+            foreach (OpenAIChatMessage msg in apiMessages)
             {
                 if (msg.Role == "system")
                 {
@@ -932,7 +932,7 @@ public class SimpleApiServer : IDisposable
         List<OpenAIChatMessage> apiMessages = new();
         if (frontendMessages != null)
         {
-            foreach (var msg in frontendMessages)
+            foreach (FrontendChatMessage msg in frontendMessages)
             {
                 // ロールが空のメッセージはスキップ
                 if (string.IsNullOrEmpty(msg.Role))
@@ -950,7 +950,7 @@ public class SimpleApiServer : IDisposable
 
         if (apiMessages != null) // apiMessages から構築
         {
-            foreach (var msg in apiMessages)
+            foreach (OpenAIChatMessage msg in apiMessages)
             {
                 string geminiRole = (msg.Role == "assistant") ? "model" : "user";
                 contents.Add(new { role = geminiRole, parts = new[] { new { text = msg.Content } } });

@@ -214,7 +214,7 @@ public sealed partial class MainWindow : Window
                 activeCount = activeCount,
                 totalCount = totalCount
             };
-            var json = JsonSerializer.Serialize(status);
+            string json = JsonSerializer.Serialize(status);
             Preview.CoreWebView2?.PostWebMessageAsString(json);
         }
     }
@@ -248,7 +248,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public async Task<string?> GetChatHistoryAsync()
     {
-        var result = await ExecuteScriptAsync("JSON.stringify(window.chrome.webview.targetEnvironment?.tabs || {})");
+        string result = await ExecuteScriptAsync("JSON.stringify(window.chrome.webview.targetEnvironment?.tabs || {})");
         return string.IsNullOrEmpty(result) ? null : result;
     }
 
@@ -335,7 +335,7 @@ public sealed partial class MainWindow : Window
             method = "settingsUpdated",
             settings = CurrentApiSettings
         };
-        var json = JsonSerializer.Serialize(settingsMessage);
+        string json = JsonSerializer.Serialize(settingsMessage);
         Preview.CoreWebView2?.PostWebMessageAsString(json);
         LogInfo($"Sent updated settings to WebView2: {json}");
     }
