@@ -33,6 +33,7 @@
     <!-- <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" /> -->
     <!-- <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" /> -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250513003" />
+    <PackageReference Include="System.Net.Http.Json" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>

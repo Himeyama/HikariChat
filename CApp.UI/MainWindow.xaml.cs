@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -192,6 +193,12 @@ public sealed partial class MainWindow : Window
                         {
                             SendMcpStatus();
                         }
+                        else
+                        {
+                            // MCP ツール呼び出しとして処理
+                            LogInfo($"MCP Tool call received: {tp.Name}, Args: {tp.Arguments}");
+                            _ = ExecuteMcpToolAsync(tp.Name, tp.Arguments);
+                        }
                     }
                 }
             }
@@ -216,6 +223,56 @@ public sealed partial class MainWindow : Window
             };
             string json = JsonSerializer.Serialize(status);
             Preview.CoreWebView2?.PostWebMessageAsString(json);
+        }
+    }
+
+    /// <summary>
+    /// MCP ツールを実行し、結果を WebView2 に通知する
+    /// </summary>
+    private async Task ExecuteMcpToolAsync(string toolName, JsonElement arguments)
+    {
+        try
+        {
+            LogInfo($"Executing MCP tool: {toolName}");
+            
+            // WebView2 のコンソールにログを出力
+            await ExecuteScriptAsync($"console.log('[MCP] Tool call: {toolName}');");
+            await ExecuteScriptAsync($"console.log('[MCP] Arguments: {JsonSerializer.Serialize(arguments)}');");
+
+            // API サーバーにツール実行を依頼
+            using var httpClient = new HttpClient();
+            var payload = JsonSerializer.Serialize(new { name = toolName, arguments });
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var response = await httpClient.PostAsync("http://localhost:51234/api/mcp/execute", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseJson = await response.Content.ReadAsStringAsync();
+                using var resultDoc = JsonDocument.Parse(responseJson);
+                var result = resultDoc.RootElement;
+                LogInfo($"MCP tool execution completed: {toolName}, Success: {result.GetProperty("success").GetBoolean()}");
+                
+                // WebView2 のコンソールに結果を出力
+                var success = result.GetProperty("success").GetBoolean();
+                await ExecuteScriptAsync($"console.log('[MCP] Tool result: {success}');");
+                
+                if (!success)
+                {
+                    var error = result.GetProperty("content").GetString();
+                    await ExecuteScriptAsync($"console.error('[MCP] Error: {error}');");
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                LogInfo($"MCP tool execution failed: {error}");
+                await ExecuteScriptAsync($"console.error('[MCP] Execution failed: {error}');");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogInfo($"MCP tool execution error: {ex.Message}");
+            await ExecuteScriptAsync($"console.error('[MCP] Exception: {ex.Message}');");
         }
     }
 
