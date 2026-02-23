@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -283,12 +284,23 @@ public class SimpleApiServer : IDisposable
     /// </summary>
     async Task HandleMcpListToolsAsync(HttpListenerRequest req, HttpListenerResponse res)
     {
+        var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "api_server.log");
+        void Log(string msg) => File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {msg}{Environment.NewLine}");
+
+        Log($"HandleMcpListToolsAsync called - Method: {req.HttpMethod}");
+        Log($"_mcpManager is null: {_mcpManager == null}");
+        
+        if (_mcpManager != null)
+        {
+            var status = _mcpManager.GetStatus();
+            Log($"MCP Status: enabled={status.enabled}, activeCount={status.activeCount}, totalCount={status.totalCount}");
+        }
+
         try
         {
-            Console.WriteLine($"[MCP] HandleMcpListToolsAsync called");
-
             if (_mcpManager == null)
             {
+                Log("MCP manager is null");
                 res.StatusCode = (int)HttpStatusCode.InternalServerError;
                 await WriteJsonAsync(res, new { error = "MCP manager not initialized" });
                 return;
@@ -296,19 +308,24 @@ public class SimpleApiServer : IDisposable
 
             // Get all tools from all MCP servers
             var allTools = new List<McpToolDefinition>();
-            
+
             // Access clients via reflection (McpManager._clients)
             var clientsField = typeof(McpManager).GetField("_clients", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             if (clientsField != null)
             {
                 var clients = clientsField.GetValue(_mcpManager) as System.Collections.Generic.Dictionary<string, McpClientWrapper>;
+                Log($"Found {clients?.Count ?? 0} MCP clients");
+
                 if (clients != null)
                 {
                     foreach (var client in clients.Values)
                     {
                         try
                         {
+                            Log($"Listing tools from {client.Name}...");
                             var tools = await client.ListToolsAsync();
+                            Log($"Got {tools.Count} tools from {client.Name}");
+                            
                             // Add server name prefix to tool names
                             foreach (var tool in tools)
                             {
@@ -318,13 +335,17 @@ public class SimpleApiServer : IDisposable
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[MCP] Failed to list tools from {client.Name}: {ex.Message}");
+                            Log($"Failed to list tools from {client.Name}: {ex.Message}");
                         }
                     }
                 }
             }
+            else
+            {
+                Log("Could not find _clients field via reflection");
+            }
 
-            Console.WriteLine($"[MCP] Found {allTools.Count} tools");
+            Log($"Returning {allTools.Count} tools");
 
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
@@ -332,7 +353,7 @@ public class SimpleApiServer : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MCP] HandleMcpListToolsAsync exception: {ex.Message}");
+            Log($"Exception: {ex.Message}\n{ex.StackTrace}");
             res.StatusCode = (int)HttpStatusCode.InternalServerError;
             await WriteJsonAsync(res, new { error = "Failed to list tools", detail = ex.Message });
         }

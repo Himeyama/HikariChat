@@ -50,10 +50,10 @@
     /* font-size: var(--font-size-1); Radix font size */
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-2);
-    background: var(--blue-2); /* Radix blue background */
-    color: var(--blue-11); /* Radix blue text */
     font-weight: var(--font-weight-5);
     margin-right: auto; /* Push other items to the right */
+    background-color: var(--accent-4);
+    color: var(--accent-11);
 }
 
 .mcp-status-display {
@@ -145,7 +145,7 @@
 .chat-message .message-content {
     line-height: var(--line-height-3);
     padding: var(--space-3);
-    border-radius: var(--radius-3);
+    border-radius: var(--radius-6);
     width: 100%; /* Ensure it tries to take available space */
 }
 

@@ -557,8 +557,6 @@ function App() {
           ))}
         </Tabs.Root>
       </Box>
-
-      {/* <ThemePanel /> */}
     </Box>
   );
 }

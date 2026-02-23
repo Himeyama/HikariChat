@@ -568,7 +568,9 @@ export interface McpToolInfo {
  */
 export async function getAvailableTools(): Promise<McpToolInfo[]> {
   try {
-    const response = await fetch('/api/mcp/tools');
+    // API サーバーは localhost:30078 で実行されている
+    const apiUrl = 'http://localhost:30078/api/mcp/tools';
+    const response = await fetch(apiUrl);
     if (!response.ok) {
       return [];
     }

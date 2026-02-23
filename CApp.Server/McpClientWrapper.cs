@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
@@ -87,42 +88,215 @@ public class McpClientWrapper : IDisposable
 
     public async Task<List<McpToolDefinition>> ListToolsAsync()
     {
+        var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mcp_client_wrapper.log");
+        void Log(string msg) => File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{_name}] {msg}{Environment.NewLine}");
+        
         if (_client == null) throw new InvalidOperationException("Not connected");
 
         List<McpToolDefinition> tools = new List<McpToolDefinition>();
 
         // リフレクションを使って ListToolsAsync を呼び出し
-        MethodInfo? listToolsMethod = _client.GetType().GetMethod("ListToolsAsync");
+        // ListToolsAsync(RequestOptions? options, CancellationToken cancellationToken) のオーバーロードを取得
+        var methods = _client.GetType().GetMethods();
+        MethodInfo? listToolsMethod = null;
+        foreach (var method in methods)
+        {
+            if (method.Name == "ListToolsAsync" 
+                && method.GetParameters().Length == 2
+                && method.GetParameters()[1].ParameterType == typeof(CancellationToken))
+            {
+                listToolsMethod = method;
+                break;
+            }
+        }
+        
+        Log($"Found ListToolsAsync method: {listToolsMethod != null}");
+        Log($"ListToolsAsync return type: {listToolsMethod?.ReturnType.FullName}");
+        
         if (listToolsMethod != null)
         {
-            if (listToolsMethod.Invoke(_client, [_cts.Token]) is Task resultTask)
+            // null と CancellationToken を渡して呼び出し
+            Log($"Calling ListToolsAsync...");
+            try
             {
-                await resultTask.ConfigureAwait(false);
-                object? result = resultTask.GetType().GetProperty("Result")?.GetValue(resultTask);
-                if (result is System.Collections.IEnumerable toolList)
+                Log($"Invoking ListToolsAsync with parameters: null, {_cts.Token}");
+                var invokeResult = listToolsMethod.Invoke(_client, [null, _cts.Token]);
+                Log($"Invoke result type: {invokeResult?.GetType().FullName ?? "null"}");
+                
+                // ValueTask または Task のいずれかを処理
+                Task? task = null;
+                if (invokeResult is Task t)
                 {
-                    foreach (object? tool in toolList)
+                    task = t;
+                    Log("Result is Task");
+                }
+                else if (invokeResult != null && invokeResult.GetType().Name.StartsWith("ValueTask"))
+                {
+                    // ValueTask<TResult> から Result プロパティを取得
+                    var resultProp = invokeResult.GetType().GetProperty("Result");
+                    if (resultProp != null)
                     {
-                        PropertyInfo? nameProp = tool.GetType().GetProperty("Name");
-                        PropertyInfo? descProp = tool.GetType().GetProperty("Description");
-                        PropertyInfo? schemaProp = tool.GetType().GetProperty("Parameters");
-
-
-                        tools.Add(new McpToolDefinition
+                        var valueTaskResult = resultProp.GetValue(invokeResult);
+                        Log($"ValueTask result type: {valueTaskResult?.GetType().FullName ?? "null"}");
+                        
+                        // IList として処理
+                        if (valueTaskResult is System.Collections.IList resultList)
                         {
-                            Name = nameProp?.GetValue(tool)?.ToString() ?? "",
-                            Description = descProp?.GetValue(tool)?.ToString() ?? "",
-                            InputSchema = schemaProp != null ?
-
-                                JsonSerializer.Deserialize<JsonElement>(
-                                    JsonSerializer.Serialize(schemaProp.GetValue(tool)))
-
-                                : default
-                        });
+                            Log($"Result count: {resultList.Count}");
+                            
+                            for (int i = 0; i < resultList.Count; i++)
+                            {
+                                var tool = resultList[i];
+                                Log($"Tool[{i}] type: {tool?.GetType().FullName ?? "null"}");
+                                
+                                if (tool != null)
+                                {
+                                    var nameProp = tool.GetType().GetProperty("Name");
+                                    var descProp = tool.GetType().GetProperty("Description");
+                                    var schemaProp = tool.GetType().GetProperty("Parameters");
+                                    
+                                    var toolDef = new McpToolDefinition
+                                    {
+                                        Name = nameProp?.GetValue(tool)?.ToString() ?? "",
+                                        Description = descProp?.GetValue(tool)?.ToString() ?? "",
+                                        InputSchema = schemaProp != null ?
+                                            JsonSerializer.Deserialize<JsonElement>(
+                                                JsonSerializer.Serialize(schemaProp.GetValue(tool)))
+                                            : default
+                                    };
+                                    Log($"Found tool: {toolDef.Name} - {toolDef.Description}");
+                                    tools.Add(toolDef);
+                                }
+                            }
+                        }
+                        else if (valueTaskResult is System.Collections.IEnumerable enumerable)
+                        {
+                            int toolCount = 0;
+                            foreach (var tool in enumerable)
+                            {
+                                toolCount++;
+                                Log($"Tool[{toolCount}] type: {tool?.GetType().FullName ?? "null"}");
+                                
+                                if (tool != null)
+                                {
+                                    var nameProp = tool.GetType().GetProperty("Name");
+                                    var descProp = tool.GetType().GetProperty("Description");
+                                    var schemaProp = tool.GetType().GetProperty("Parameters");
+                                    
+                                    var toolDef = new McpToolDefinition
+                                    {
+                                        Name = nameProp?.GetValue(tool)?.ToString() ?? "",
+                                        Description = descProp?.GetValue(tool)?.ToString() ?? "",
+                                        InputSchema = schemaProp != null ?
+                                            JsonSerializer.Deserialize<JsonElement>(
+                                                JsonSerializer.Serialize(schemaProp.GetValue(tool)))
+                                            : default
+                                    };
+                                    Log($"Found tool: {toolDef.Name}");
+                                    tools.Add(toolDef);
+                                }
+                            }
+                            Log($"Total tools from IEnumerable: {toolCount}");
+                        }
+                        else
+                        {
+                            Log($"ValueTask result is neither IList nor IEnumerable: {valueTaskResult?.GetType().FullName ?? "null"}");
+                        }
+                        
+                        Log($"Returning {tools.Count} tools");
+                        return tools;
+                    }
+                }
+                
+                if (task != null)
+                {
+                    Log($"Waiting for task to complete...");
+                    await task.ConfigureAwait(false);
+                    Log($"Task completed.");
+                    
+                    // Result プロパティを取得
+                    var resultProp = task.GetType().GetProperty("Result");
+                    Log($"Result property: {resultProp?.Name ?? "null"}");
+                    object? result = resultProp?.GetValue(task);
+                    
+                    Log($"ListToolsAsync result type: {result?.GetType().FullName ?? "null"}");
+                    Log($"ListToolsAsync result is IList: {result is System.Collections.IList}");
+                    
+                    if (result is System.Collections.IList resultList)
+                    {
+                        Log($"Result count: {resultList.Count}");
+                        
+                        for (int i = 0; i < resultList.Count; i++)
+                        {
+                            var tool = resultList[i];
+                            Log($"Tool[{i}] type: {tool?.GetType().FullName ?? "null"}");
+                            
+                            if (tool != null)
+                            {
+                                var nameProp = tool.GetType().GetProperty("Name");
+                                var descProp = tool.GetType().GetProperty("Description");
+                                var schemaProp = tool.GetType().GetProperty("Parameters");
+                                
+                                var toolDef = new McpToolDefinition
+                                {
+                                    Name = nameProp?.GetValue(tool)?.ToString() ?? "",
+                                    Description = descProp?.GetValue(tool)?.ToString() ?? "",
+                                    InputSchema = schemaProp != null ?
+                                        JsonSerializer.Deserialize<JsonElement>(
+                                            JsonSerializer.Serialize(schemaProp.GetValue(tool)))
+                                        : default
+                                };
+                                Log($"Found tool: {toolDef.Name} - {toolDef.Description}");
+                                tools.Add(toolDef);
+                            }
+                        }
+                    }
+                    else if (result is System.Collections.IEnumerable enumerable)
+                    {
+                        int toolCount = 0;
+                        foreach (var tool in enumerable)
+                        {
+                            toolCount++;
+                            Log($"Tool[{toolCount}] type: {tool?.GetType().FullName ?? "null"}");
+                            
+                            if (tool != null)
+                            {
+                                var nameProp = tool.GetType().GetProperty("Name");
+                                var descProp = tool.GetType().GetProperty("Description");
+                                var schemaProp = tool.GetType().GetProperty("Parameters");
+                                
+                                var toolDef = new McpToolDefinition
+                                {
+                                    Name = nameProp?.GetValue(tool)?.ToString() ?? "",
+                                    Description = descProp?.GetValue(tool)?.ToString() ?? "",
+                                    InputSchema = schemaProp != null ?
+                                        JsonSerializer.Deserialize<JsonElement>(
+                                            JsonSerializer.Serialize(schemaProp.GetValue(tool)))
+                                        : default
+                                };
+                                Log($"Found tool: {toolDef.Name}");
+                                tools.Add(toolDef);
+                            }
+                        }
+                        Log($"Total tools from IEnumerable: {toolCount}");
+                    }
+                    else
+                    {
+                        Log($"Result is neither IList nor IEnumerable: {result?.GetType().FullName ?? "null"}");
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Log($"Exception in ListToolsAsync: {ex.Message}\n{ex.StackTrace}");
+            }
         }
+        else
+        {
+            Log($"ListToolsAsync method not found!");
+        }
+        
+        Log($"Returning {tools.Count} tools");
         return tools;
     }
 

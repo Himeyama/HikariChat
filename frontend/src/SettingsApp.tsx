@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Box, Button, Flex, Tabs, TextField, Select, Switch, TextArea, Text } from '@radix-ui/themes';
-import '@radix-ui/themes/styles.css'; // Ensure Radix styles are loaded
 import './App.css'; // Reuse general styles like .window, .title-bar etc.
 
 const presetDisplayNames: Record<string, string> = {
@@ -398,10 +397,10 @@ function SettingsApp() {
                                 rows={12}
                                 style={{ width: '100%', fontFamily: 'monospace' }}
                                 placeholder='{
-  "filesystem": {
+"filesystem": {
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\Users\user\Desktop"]
-  }
+}
 }'
                                 value={mcpServersJson}
                                 onChange={(e) => setMcpServersJson(e.target.value)}
