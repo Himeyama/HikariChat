@@ -44,7 +44,7 @@ interface ChatTab {
 }
 
 interface Settings {
-  apiType: string;
+  apiType: 'azure' | 'gemini' | 'claude' | 'chat_completions';
   endpointPreset: string;
   apiEndpoint: string;
   apiKey: string;
@@ -457,11 +457,8 @@ function App() {
     console.log('[processChatRecursiveWithTools] LLM result:', result);
 
     // アシスタントメッセージをローカルメッセージに追加
-    // 非ストリーミング時は UI にも追加（ストリーミング時は UI 更新済み）
     if (result.content || result.toolCalls.length > 0) {
-      if (!currentSettings.streaming) {
-        addMessage(result.content, "assistant");
-      }
+      addMessage(result.content, "assistant");
       localMessages.push({ role: "assistant", content: result.content });
     }
 
