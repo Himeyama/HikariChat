@@ -5,9 +5,11 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -238,18 +240,21 @@ public class SimpleApiServer : IDisposable
             }
 
             string toolName = nameElem.GetString() ?? "";
-            Dictionary<string, object?> args = [];
 
+            IReadOnlyDictionary<string, object?>? argsDict = null;
             if (root.TryGetProperty("arguments", out JsonElement argsElem)
                 && argsElem.ValueKind == JsonValueKind.Object)
             {
-                args = argsElem.EnumerateObject()
-                    .ToDictionary(p => p.Name, p => JsonSerializer.Deserialize<object?>(p.Value.GetRawText()));
+                argsDict = argsElem.EnumerateObject()
+                    .ToDictionary(
+                        p => p.Name,
+                        p => (object?)JsonNode.Parse(p.Value.GetRawText())
+                    );
             }
 
             DebugLogger.Mcp($"Tool execution requested: {toolName}");
 
-            // ツール名からどのクライアントが持っているか探して実行
+            // ツール名からクライアントを探して実行
             CallToolResult? result = null;
             foreach (KeyValuePair<string, McpClient> kvp in _mcpManager.GetClients())
             {
@@ -258,7 +263,12 @@ public class SimpleApiServer : IDisposable
 
                 if (tool != null)
                 {
-                    result = await tool.CallAsync(args);
+                    // SDK の CallToolAsync を直接使用
+                    result = await kvp.Value.CallToolAsync(
+                        toolName,
+                        argsDict,
+                        cancellationToken: CancellationToken.None
+                    );
                     break;
                 }
             }
@@ -272,14 +282,12 @@ public class SimpleApiServer : IDisposable
 
             DebugLogger.Mcp($"Tool execution completed: {toolName}");
 
-            string? responseText = result.Content.ToString();
-
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
             await WriteJsonAsync(res, new
             {
                 success = !(result.IsError ?? false),
-                content = responseText,
+                content = result,
             });
         }
         catch (Exception ex)

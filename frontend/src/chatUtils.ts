@@ -32,15 +32,7 @@ export interface ToolCall {
  * MCP Tool information compatible with @modelcontextprotocol/sdk types
  */
 export interface McpToolInfo {
-  returnJsonSchema: {
-    properties: {
-      content: {
-        type: string;
-      };
-    };
-    required: string[];
-    type: string;
-  };
+  jsonSchema: any;
   name: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
@@ -623,31 +615,22 @@ export async function getAvailableTools(): Promise<McpToolInfo[]> {
 
 export function convertToOpenAITools(tools: McpToolInfo[]): OpenAI.Chat.ChatCompletionTool[] {
   return tools.map(tool => {
-    let properties: Record<string, unknown> = {};
-    let required: string[] = [];
-    let type: string = "";
+    const schema = tool.jsonSchema; // returnJsonSchema → jsonSchema に変更
 
-    if (tool.returnJsonSchema) {
-      try {
-        properties = tool.returnJsonSchema.properties ?? {};
-        required = tool.returnJsonSchema.required ?? [];
-        type = tool.returnJsonSchema.type ?? "";
-      } catch {
-        console.error('[convertToOpenAITools] Error parsing schema for tool:', tool.name);
-      }
-    } else {
-      console.log(tool)
-      console.log("[WARN] tool.inputSchemaJson does not exist");
-    }
-
-    console.log(tool)
+    const parameters = schema
+      ? {
+          type: schema.type ?? 'object',
+          properties: schema.properties ?? {},
+          required: schema.required ?? [],
+        }
+      : { type: 'object', properties: {}, required: [] };
 
     return {
       type: 'function' as const,
       function: {
         name: tool.name,
         description: tool.description ?? '',
-        parameters: { type, properties, required },
+        parameters,
       },
     };
   });
