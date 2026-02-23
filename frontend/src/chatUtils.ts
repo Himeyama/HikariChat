@@ -556,3 +556,55 @@ export function buildMessagesForNextRequest(
 
   return newMessages;
 }
+
+export interface McpToolInfo {
+  name: string;
+  description: string;
+  inputSchema: any;
+}
+
+/**
+ * Fetch available MCP tools from the server
+ */
+export async function getAvailableTools(): Promise<McpToolInfo[]> {
+  try {
+    const response = await fetch('/api/mcp/tools');
+    if (!response.ok) {
+      return [];
+    }
+    const data = await response.json();
+    return data.tools || [];
+  } catch (error) {
+    console.error('[getAvailableTools] Error fetching tools:', error);
+    return [];
+  }
+}
+
+/**
+ * Build system message with tool information for LLM
+ */
+export function buildSystemMessageWithTools(tools: McpToolInfo[], customSystemMessage?: string): ChatMessage {
+  let toolDescription = '';
+  
+  if (tools.length > 0) {
+    toolDescription = '\n\n## 利用可能なツール\n\n' +
+      tools.map(tool => {
+        const params = tool.inputSchema?.properties ? 
+          Object.entries(tool.inputSchema.properties as Record<string, any>)
+            .map(([key, value]: [string, any]) => `  - ${key}: ${(value as any).type || 'any'} - ${(value as any).description || ''}`)
+            .join('\n')
+          : 'パラメータなし';
+        
+        return `### ${tool.name}\n${tool.description || '説明なし'}\n\nパラメータ:\n${params}`;
+      }).join('\n\n');
+  } else {
+    toolDescription = '\n\n## 利用可能なツール\n\n利用可能なツールはありません。';
+  }
+
+  const baseMessage = 'あなたは有能なアシスタントです。ツールを使用してユーザーのタスクを支援してください。';
+  
+  return {
+    role: 'system',
+    content: baseMessage + toolDescription + (customSystemMessage ? `\n\n${customSystemMessage}` : '')
+  };
+}

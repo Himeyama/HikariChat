@@ -3,7 +3,7 @@ import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
 import hljs from 'highlight.js';
-import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, type ToolCall } from './chatUtils';
+import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, buildSystemMessageWithTools, type ToolCall } from './chatUtils';
 
 // Create a new Marked instance and configure it
 const customMarked = new Marked();
@@ -100,6 +100,7 @@ function App() {
   const [mcpStatus, setMcpStatus] = useState('MCP: 無効');
   const [mcpStatusClass, setMcpStatusClass] = useState('disabled'); // Corresponds to styles.css classes
   const [isMaximized, setIsMaximized] = useState(false);
+  const [availableTools, setAvailableTools] = useState<any[]>([]);
 
   const activeTab = tabs[activeTabId];
 
@@ -108,6 +109,7 @@ function App() {
     updateModelDisplay();
     updateMcpStatusDisplay();
     requestMcpStatus();
+    loadAvailableTools();
 
     const handleWebviewMessage = (event: any) => {
       try {
@@ -187,6 +189,16 @@ function App() {
 
   const requestMcpStatus = () => {
     webview.postMessage('{ "method": "tools/call", "params": {"name": "getMcpInfo", "arguments": {} } }');
+  };
+
+  const loadAvailableTools = async () => {
+    if (!currentSettings.mcpEnabled) {
+      setAvailableTools([]);
+      return;
+    }
+    const tools = await getAvailableTools();
+    setAvailableTools(tools);
+    console.log('[loadAvailableTools] Loaded tools:', tools);
   };
 
   const openSettingsWindow = () => {
@@ -366,9 +378,12 @@ function App() {
     const messageToSend = chatInput.trim();
     const userMessage: ChatMessage = { role: "user", content: messageToSend };
 
-    // Add user message to both UI and local messages
+    // Build initial messages with system message containing tool info
+    const systemMessage = buildSystemMessageWithTools(availableTools);
+    const localMessages: ChatMessage[] = [systemMessage, userMessage];
+    
+    // Add user message to UI
     addMessage(messageToSend, "user");
-    const localMessages: ChatMessage[] = [userMessage];
     setChatInput('');
 
     try {

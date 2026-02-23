@@ -118,6 +118,19 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
+            // MCP ツール一覧を取得
+            if (path.Equals("/api/mcp/tools", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "GET")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleMcpListToolsAsync(req, res);
+                return;
+            }
+
             // テスト自動化用：WebView2 で JavaScript を実行
             if (path.Equals("/api/test/execute-script", StringComparison.OrdinalIgnoreCase))
             {
@@ -249,9 +262,9 @@ public class SimpleApiServer : IDisposable
 
             res.StatusCode = (int)HttpStatusCode.OK;
             res.ContentType = "application/json; charset=utf-8";
-            
+
             // ツール実行結果を返す
-            await WriteJsonAsync(res, new 
+            await WriteJsonAsync(res, new
             {
                 success = !result.IsError,
                 content = responseText,
@@ -262,6 +275,66 @@ public class SimpleApiServer : IDisposable
         {
             res.StatusCode = (int)HttpStatusCode.InternalServerError;
             await WriteJsonAsync(res, new { error = "MCP execution error", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// MCP ツール一覧を取得
+    /// </summary>
+    async Task HandleMcpListToolsAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        try
+        {
+            Console.WriteLine($"[MCP] HandleMcpListToolsAsync called");
+
+            if (_mcpManager == null)
+            {
+                res.StatusCode = (int)HttpStatusCode.InternalServerError;
+                await WriteJsonAsync(res, new { error = "MCP manager not initialized" });
+                return;
+            }
+
+            // Get all tools from all MCP servers
+            var allTools = new List<McpToolDefinition>();
+            
+            // Access clients via reflection (McpManager._clients)
+            var clientsField = typeof(McpManager).GetField("_clients", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (clientsField != null)
+            {
+                var clients = clientsField.GetValue(_mcpManager) as System.Collections.Generic.Dictionary<string, McpClientWrapper>;
+                if (clients != null)
+                {
+                    foreach (var client in clients.Values)
+                    {
+                        try
+                        {
+                            var tools = await client.ListToolsAsync();
+                            // Add server name prefix to tool names
+                            foreach (var tool in tools)
+                            {
+                                tool.Name = $"{client.Name}_{tool.Name}";
+                                allTools.Add(tool);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[MCP] Failed to list tools from {client.Name}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine($"[MCP] Found {allTools.Count} tools");
+
+            res.StatusCode = (int)HttpStatusCode.OK;
+            res.ContentType = "application/json; charset=utf-8";
+            await WriteJsonAsync(res, new { tools = allTools });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MCP] HandleMcpListToolsAsync exception: {ex.Message}");
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "Failed to list tools", detail = ex.Message });
         }
     }
 
