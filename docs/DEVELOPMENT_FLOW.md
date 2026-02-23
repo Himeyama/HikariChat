@@ -19,13 +19,13 @@
 以下の方法で GUI アプリを停止します。
 
 ```ps1
-Stop-Process -Name CApp
+Stop-Process -Name HikariChat
 ```
 
 停止しているかは次のように確認します。
 
 ```ps1
-Get-Process -Name CApp
+Get-Process -Name HikariChat
 ```
 
 開始は次のように行います。終了と開始は 1 ステップずつ行います。

@@ -7,8 +7,8 @@
 ## ディレクトリ構成
 
 ```
-CApp/
-├── CApp/                          # C# WPF アプリケーション本体
+HikariChat/
+├── HikariChat/                          # C# WPF アプリケーション本体
 │   ├── Assets/
 │   │   ├── EditorUI/              # frontend/ からビルドされた WebView2 用フロントエンド UI
 │   │   ├── index.html         # メイン UI 画面
@@ -23,7 +23,7 @@ CApp/
 │   ├── App.xaml / App.xaml.cs     # アプリケーションエントリーポイント
 │   ├── MainWindow.xaml / .xaml.cs # メインウィンドウ (WebView2 ホスト)
 │   ├── SettingsWindow.xaml / .xaml.cs  # 設定ウィンドウ
-│   └── CApp.csproj                # プロジェクトファイル
+│   └── HikariChat.csproj                # プロジェクトファイル
 ├── frontend/                      # フロントエンドのソースコードとビルド設定
 ├── docs/                          # ドキュメント
 ├── dev.ps1                        # 開発用 PowerShell スクリプト
@@ -42,16 +42,16 @@ CApp/
 
 ## 主要コンポーネント
 
-### CApp/CApp/MainWindow.xaml
+### HikariChat/HikariChat/MainWindow.xaml
 WebView2 コントロールを含むメインウィンドウ。`Assets/EditorUI/index.html` を読み込みます。
 
-### CApp/CApp/SimpleApiServer.cs
+### HikariChat/HikariChat/SimpleApiServer.cs
 フロントエンドとの通信用の簡易 HTTP サーバーを実装しています。
 
-### CApp/CApp/ApiSettings.cs
+### HikariChat/HikariChat/ApiSettings.cs
 API エンドポイントや設定を管理します。
 
-### CApp/Assets/EditorUI/
+### HikariChat/Assets/EditorUI/
 `frontend/` ディレクトリからビルドされ、WebView2 で表示されるフロントエンド UI ファイル群。
 
 ## 開発フロー

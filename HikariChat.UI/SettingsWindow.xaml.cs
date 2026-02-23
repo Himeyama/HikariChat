@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using CApp.Server;
+using HikariChat.Server;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -11,7 +11,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using WinRT.Interop;
 
-namespace CApp;
+namespace HikariChat;
 
 public sealed partial class SettingsWindow : Window
 {
@@ -165,7 +165,7 @@ public sealed partial class SettingsWindow : Window
 
             if (settings != null)
             {
-                await CApp.Server.ApiSettingsManager.SaveAsync(settings);
+                await HikariChat.Server.ApiSettingsManager.SaveAsync(settings);
                 LogInfo($"Settings saved to file");
 
                 // アプリに MCP サーバーの更新を通知

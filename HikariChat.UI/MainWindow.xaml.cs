@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using CApp.Server;
+using HikariChat.Server;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
@@ -15,7 +15,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using WinRT.Interop;
 
-namespace CApp;
+namespace HikariChat;
 
 public sealed partial class MainWindow : Window
 {
@@ -54,7 +54,7 @@ public sealed partial class MainWindow : Window
 
     async void InitializeCurrentApiSettings()
     {
-        ApiSettings loadedSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
+        ApiSettings loadedSettings = await HikariChat.Server.ApiSettingsManager.LoadAsync();
         if (loadedSettings != null)
         {
             CurrentApiSettings = loadedSettings; // Update with loaded settings
@@ -394,7 +394,7 @@ public sealed partial class MainWindow : Window
     public async void NotifySettingsUpdated()
     {
         LogInfo("NotifySettingsUpdated called. Reloading settings and updating WebView2.");
-        CurrentApiSettings = await CApp.Server.ApiSettingsManager.LoadAsync();
+        CurrentApiSettings = await HikariChat.Server.ApiSettingsManager.LoadAsync();
         SendCurrentSettingsToWebView();
     }
 

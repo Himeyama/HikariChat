@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <AssemblyName>CApp</AssemblyName>
-    <RootNamespace>CApp</RootNamespace>
+    <AssemblyName>HikariChat</AssemblyName>
+    <RootNamespace>HikariChat</RootNamespace>
     <Description>This app is an example of a small WinUI app.</Description>
     <Authors>MURATA Mitsuharu</Authors>
     <Company>MURATA Mitsuharu</Company>
     <Copyright>(c) $([System.DateTime]::Now.Year) $(Company)</Copyright>
     <PublishDir>publish</PublishDir>
     <ApplicationIcon>Assets/App.ico</ApplicationIcon>
-    <RepositoryUrl>https://github.com/himeyama/CApp</RepositoryUrl>
+    <RepositoryUrl>https://github.com/himeyama/HikariChat</RepositoryUrl>
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -37,7 +37,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CApp.Server\CApp.Server.csproj" />
+    <ProjectReference Include="..\HikariChat.Server\HikariChat.Server.csproj" />
   </ItemGroup>
 
   <ItemGroup>

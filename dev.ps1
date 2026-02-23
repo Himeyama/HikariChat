@@ -1,11 +1,11 @@
-$csproj = ".\CApp.UI\CApp.UI.csproj"
-$appName = "CApp"
+$csproj = ".\HikariChat.UI\HikariChat.UI.csproj"
+$appName = "HikariChat"
 $publisher = "ひかり"
-$execFile = "CApp.exe"
+$execFile = "HikariChat.exe"
 $version = (Get-Date).ToString("yy.M.d")
 $date = (Get-Date).ToString("yyyyMMdd")
-$publishDir = "CApp.UI\publish"
-$muiIcon = "CApp.UI\Assets\App.ico"
+$publishDir = "HikariChat.UI\publish"
+$muiIcon = "HikariChat.UI\Assets\App.ico"
 
 $startMenuPath = [Environment]::GetFolderPath("Programs")
 

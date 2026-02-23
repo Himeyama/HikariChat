@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ModelContextProtocol.Client;
 
-namespace CApp.Server;
+namespace HikariChat.Server;
 
 /// <summary>
 /// MCP クライアントの管理

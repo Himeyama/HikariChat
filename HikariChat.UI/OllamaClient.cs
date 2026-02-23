@@ -6,10 +6,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace CApp;
+namespace HikariChat.Server;
 
 /// <summary>
-/// Ollama API クライアンチE
+/// Ollama API クライアント
 /// </summary>
 public class OllamaClient
 {
@@ -27,7 +27,7 @@ public class OllamaClient
     }
 
     /// <summary>
-    /// Ollama が利用可能かチェチE��
+    /// Ollama が利用可能かチェック
     /// </summary>
     public async Task<bool> IsAvailableAsync()
     {
@@ -42,6 +42,9 @@ public class OllamaClient
         }
     }
 
+    /// <summary>
+    /// モデル一覧を取得
+    /// </summary>
     public async Task<List<string>> GetModelsAsync()
     {
         try
@@ -56,7 +59,7 @@ public class OllamaClient
         }
         catch
         {
-            // エラー時�E空リストを返す
+            // エラー時は空リストを返す
         }
         return [];
     }
@@ -77,7 +80,7 @@ public class OllamaTagsResponse
 }
 
 /// <summary>
-/// Ollama モチE��惁E��
+/// Ollama モデル情報
 /// </summary>
 public class OllamaModel
 {

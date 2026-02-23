@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
-    outDir: '../CApp.UI/Assets/EditorUI', // Output to the specified directory
+    outDir: '../HikariChat.UI/Assets/EditorUI', // Output to the specified directory
     emptyOutDir: true, // Clear the directory before building
     rollupOptions: {
       input: {

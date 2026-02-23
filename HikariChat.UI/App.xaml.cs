@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
-using CApp.Server;
+using HikariChat.Server;
 using Microsoft.UI.Xaml;
 
-namespace CApp;
+namespace HikariChat;
 
 #pragma warning disable CS8603, CS8619
 

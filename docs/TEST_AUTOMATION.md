@@ -1,10 +1,10 @@
 # テスト自動化ガイド
 
-このドキュメントでは、CApp のテスト自動化方法について説明します。
+このドキュメントでは、HikariChat のテスト自動化方法について説明します。
 
 ## 概要
 
-CApp は以下の方法でテスト自動化をサポートしています：
+HikariChat は以下の方法でテスト自動化をサポートしています：
 
 1. **HTTP API 経由でのテスト**: サーバーに対して GET/POST リクエストを送信
 2. **WebView2 操作**: C# 経由でブラウザ内の JavaScript を実行
@@ -94,7 +94,7 @@ GET /api/test/chat-history
 
 ```powershell
 # 例：dotnet run で起動
-dotnet run --project CApp/CApp.csproj
+dotnet run --project HikariChat/HikariChat.csproj
 ```
 
 ### サーバーの停止
@@ -103,7 +103,7 @@ dotnet run --project CApp/CApp.csproj
 
 ```powershell
 # プロセス名で kill
-Get-Process CApp | Stop-Process -Force
+Get-Process HikariChat | Stop-Process -Force
 
 # または PID で kill
 Stop-Process -Id <PID> -Force
@@ -190,7 +190,7 @@ Write-Host "メッセージ数：$messageCount"
 $serverUrl = "http://localhost:30078"
 
 # 1. アプリ起動（別プロセス）
-Start-Process "dotnet" -ArgumentList "run", "--project", "CApp/CApp.csproj"
+Start-Process "dotnet" -ArgumentList "run", "--project", "HikariChat/HikariChat.csproj"
 Start-Sleep -Seconds 5  # サーバー起動を待つ
 
 try {
@@ -235,7 +235,7 @@ try {
     
 } finally {
     # 6. アプリを閉じる
-    Get-Process CApp -ErrorAction SilentlyContinue | Stop-Process -Force
+    Get-Process HikariChat -ErrorAction SilentlyContinue | Stop-Process -Force
     Write-Host "アプリを終了しました"
 }
 ```

@@ -3,13 +3,13 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace CApp.Server;
+namespace HikariChat.Server;
 
 public static class ApiSettingsManager
 {
     static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CApp",
+        "HikariChat",
         "settings.json"
     );
 

@@ -9,11 +9,10 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-namespace CApp.Server;
+namespace HikariChat.Server;
 
 public class SimpleApiServer : IDisposable
 {

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Window
-    x:Class="CApp.MainWindow"
+    x:Class="HikariChat.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="using:CApp"
+    xmlns:local="using:HikariChat"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
     <Grid x:Name="Window">
@@ -12,7 +12,7 @@
             <Grid Name="TitleBar" Height="40" />
         </Grid>
         <Grid>
-            <WebView2 Name="Preview" x:FieldModifier="public" />
+            <WebView2 Name="SettingsWebView" x:FieldModifier="public" />
         </Grid>
     </Grid>
 </Window>

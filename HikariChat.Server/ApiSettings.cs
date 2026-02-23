@@ -2,7 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace CApp.Server;
+namespace HikariChat.Server;
 
 public class McpServerConfig : ObservableObject
 {
