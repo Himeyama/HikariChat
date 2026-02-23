@@ -189,10 +189,6 @@ public sealed partial class MainWindow : Window
                         {
                             SendMcpStatus();
                         }
-                        else if (tp.Name == "getTools")
-                        {
-                            _ = GetMcpToolsAsync();
-                        }
                         else
                         {
                             // MCP ツール呼び出しとして処理
@@ -224,98 +220,6 @@ public sealed partial class MainWindow : Window
             string json = JsonSerializer.Serialize(status);
             Preview.CoreWebView2?.PostWebMessageAsString(json);
         }
-    }
-
-    /// <summary>
-    /// MCP ツール一覧を取得して WebView2 に通知する
-    /// </summary>
-    private async Task GetMcpToolsAsync()
-    {
-        try
-        {
-            LogInfo("Getting MCP tools list");
-
-            if (Application.Current is not App app || app.MainWindow == null)
-            {
-                LogInfo("App or MainWindow is null");
-                return;
-            }
-
-            var mcpManager = GetMcpManager();
-            if (mcpManager == null)
-            {
-                LogInfo("MCP Manager is null");
-                SendToolsResponse(new List<McpToolInfo>());
-                return;
-            }
-
-            var tools = await GetMcpToolsFromManagerAsync(mcpManager);
-            LogInfo($"Retrieved {tools.Count} MCP tools");
-            SendToolsResponse(tools);
-        }
-        catch (Exception ex)
-        {
-            LogInfo($"GetMcpToolsAsync error: {ex.Message}");
-            SendToolsResponse(new List<McpToolInfo>());
-        }
-    }
-
-    private McpManager? GetMcpManager()
-    {
-        if (Application.Current is App app)
-        {
-            // App.xaml.cs から McpManager を取得するためのリフレクション
-            var field = typeof(App).GetField("_mcpManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            return field?.GetValue(app) as McpManager;
-        }
-        return null;
-    }
-
-    private async Task<List<McpToolInfo>> GetMcpToolsFromManagerAsync(McpManager mcpManager)
-    {
-        var tools = new List<McpToolInfo>();
-        
-        // McpManager の _clients フィールドにアクセス
-        var clientsField = typeof(McpManager).GetField("_clients", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var clients = clientsField?.GetValue(mcpManager) as System.Collections.Generic.Dictionary<string, McpClientWrapper>;
-        
-        if (clients != null)
-        {
-            foreach (var client in clients.Values)
-            {
-                try
-                {
-                    var clientTools = await client.ListToolsAsync();
-                    foreach (var tool in clientTools)
-                    {
-                        tools.Add(new McpToolInfo
-                        {
-                            Name = $"{client.Name}_{tool.Name}",
-                            Description = tool.Description,
-                            InputSchema = tool.InputSchema
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogInfo($"Failed to get tools from {client.Name}: {ex.Message}");
-                }
-            }
-        }
-        
-        return tools;
-    }
-
-    private void SendToolsResponse(List<McpToolInfo> tools)
-    {
-        var response = new
-        {
-            method = "toolsList",
-            tools = tools
-        };
-        string json = JsonSerializer.Serialize(response);
-        Preview.CoreWebView2?.PostWebMessageAsString(json);
-        LogInfo($"Sent tools list to WebView2: {json}");
     }
 
     /// <summary>
@@ -528,14 +432,4 @@ class ToolParams
         }
         return null;
     }
-}
-
-class McpToolInfo
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = "";
-    [JsonPropertyName("description")]
-    public string Description { get; set; } = "";
-    [JsonPropertyName("inputSchema")]
-    public JsonElement InputSchema { get; set; }
 }

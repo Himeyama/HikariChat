@@ -564,46 +564,20 @@ export interface McpToolInfo {
 }
 
 /**
- * Fetch available MCP tools from the server via WebView2
+ * Fetch available MCP tools from the server
  */
 export async function getAvailableTools(): Promise<McpToolInfo[]> {
-  return new Promise((resolve) => {
-    const webview = (typeof window !== 'undefined' && (window as any).chrome?.webview) || {
-      postMessage: (msg: string) => console.log('[webview mock] postMessage:', msg),
-      addEventListener: (_event: string, _cb: any) => {},
-      removeEventListener: (_event: string, _cb: any) => {}
-    };
-
-    console.log('[getAvailableTools] Requesting tools via WebView2');
-    
-    // Send request to get tools
-    webview.postMessage(JSON.stringify({ method: "tools/call", params: { name: "getTools", arguments: {} } }));
-
-    // Wait for response via custom event
-    const timeout = setTimeout(() => {
-      webview.removeEventListener("message", handleResponse);
-      console.warn('[getAvailableTools] Timeout waiting for tools list');
-      resolve([]);
-    }, 5000); // 5 second timeout
-
-    const handleResponse = (event: any) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Check if this is the tools list response
-        if (data.method === "toolsList") {
-          clearTimeout(timeout);
-          webview.removeEventListener("message", handleResponse);
-          console.log('[getAvailableTools] Received tools:', data.tools);
-          resolve(data.tools || []);
-        }
-      } catch (e) {
-        // Ignore parse errors, wait for valid response
-        console.error('[getAvailableTools] Error parsing response:', e);
-      }
-    };
-
-    webview.addEventListener("message", handleResponse);
-  });
+  try {
+    const response = await fetch('/api/mcp/tools');
+    if (!response.ok) {
+      return [];
+    }
+    const data = await response.json();
+    return data.tools || [];
+  } catch (error) {
+    console.error('[getAvailableTools] Error fetching tools:', error);
+    return [];
+  }
 }
 
 /**
