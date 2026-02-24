@@ -118,6 +118,10 @@ function App() {
           // Use the settings directly from the message, as C# sends the current state
           setCurrentSettings(parsedData.settings);
           console.log('[Settings Updated From C#]', parsedData.settings);
+          // MCP が無効に変更された場合はツール一覧をクリア
+          if (!parsedData.settings?.mcpEnabled) {
+            setAvailableTools([]);
+          }
           // updateModelDisplay and updateMcpStatusDisplay will be called via useEffect due to currentSettings change
         } else if (parsedData.method === "mcpStatus") {
           updateMcpStatusDisplay(parsedData);
@@ -227,13 +231,14 @@ function App() {
 
   const addMessage = (content: string, role: ChatMessage['role'], toolName?: string, toolCallId?: string) => {
     setTabs(prevTabs => {
+      const currentTabId = activeTabIdRef.current;
       const message: ChatMessage = { role, content };
       if (toolName) message.name = toolName;
       if (toolCallId) message.tool_call_id = toolCallId;
-      const updatedHistory = [...prevTabs[activeTabId].conversationHistory, message];
+      const updatedHistory = [...prevTabs[currentTabId].conversationHistory, message];
       return {
         ...prevTabs,
-        [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: updatedHistory }
+        [currentTabId]: { ...prevTabs[currentTabId], conversationHistory: updatedHistory }
       };
     });
   };
@@ -516,17 +521,20 @@ function App() {
 
     setTabs(prevTabs => ({
       ...prevTabs,
-      [activeTabId]: { ...prevTabs[activeTabId], isLoading: true }
+      [activeTabIdRef.current]: { ...prevTabs[activeTabIdRef.current], isLoading: true }
     }));
 
     const messageToSend = chatInput.trim();
     const userMessage: ChatMessage = { role: "user", content: messageToSend };
 
-    // Build messages with user message only (tools are passed separately to API)
-    const localMessages: ChatMessage[] = [userMessage];
-    
-    // Convert MCP tools to OpenAI format
-    const openaiTools = convertToOpenAITools(availableTools);
+    // 過去の会話履歴を含めてAPIに送信（error/toolはUI専用なので除外）
+    const historyForApi = (activeTab.conversationHistory ?? []).filter(
+      m => m.role !== 'error' && m.role !== 'tool'
+    );
+    const localMessages: ChatMessage[] = [...historyForApi, userMessage];
+
+    // MCP無効時はツールを送らない
+    const openaiTools = currentSettings.mcpEnabled ? convertToOpenAITools(availableTools) : [];
     
     // Add user message to UI
     addMessage(messageToSend, "user");
@@ -543,7 +551,7 @@ function App() {
     } finally {
       setTabs(prevTabs => ({
         ...prevTabs,
-        [activeTabId]: { ...prevTabs[activeTabId], isLoading: false }
+        [activeTabIdRef.current]: { ...prevTabs[activeTabIdRef.current], isLoading: false }
       }));
     }
   };
