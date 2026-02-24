@@ -40,7 +40,6 @@ const defaultSettings: Settings = {
     mcpServers: {}
 };
 
-// Helper function to load settings (copied from App.tsx or similar logic)
 function loadSettings(): Settings {
     const saved = localStorage.getItem("chatSettings");
     if (saved) {
@@ -108,12 +107,23 @@ const compatibleEndpoints = {
     gemini: ["gemini", "custom"]
 };
 
+// apiType 変更時のデフォルトプリセットマッピング
+const defaultPresetForApiType: Record<ApiType, EndpointPreset> = {
+    chat_completions: "openai",
+    azure: "azure_openai",
+    claude: "anthropic",
+    gemini: "gemini",
+};
+
 const apiTypeDescriptions: Record<ApiType, string> = {
     chat_completions: "OpenAI 互換の API エンドポイントを使用します（OpenAI、Grok、Ollama など）",
     azure: "Azure OpenAI Service を使用します",
     claude: "Anthropic Claude API を使用します",
     gemini: "Google Gemini API を使用します"
 };
+
+// "custom" はモデル手入力用のセンチネル値
+const CUSTOM_MODEL_VALUE = "__custom__";
 
 const models: Record<EndpointPreset | string, string[]> = {
     openai: [
@@ -136,7 +146,7 @@ const models: Record<EndpointPreset | string, string[]> = {
         "claude-opus-4-6", "claude-sonnet-4-6", "claude-opus-4-5",
         "claude-sonnet-4-5", "claude-haiku-4-5",
     ],
-    ollama: [ // This list is dynamic from webview, providing a default list
+    ollama: [
         "llama3.3", "llama3.2", "qwen3", "qwen2.5", "deepseek-r1",
         "mistral", "gemma2", "phi4",
     ],
@@ -147,24 +157,78 @@ function SettingsApp() {
     const initialSettings = loadSettings();
     const [ollamaAvailable, setOllamaAvailable] = useState(false);
     const [ollamaModels, setOllamaModels] = useState<string[]>([]);
-    const [apiTypeInfoText, setApiTypeInfoText] = useState(apiTypeDescriptions[initialSettings.apiType as ApiType]);
     const [activeTab, setActiveTab] = useState('tab-api');
+    const [saveError, setSaveError] = useState<string | null>(null);
 
-    // State for form fields
     const [apiType, setApiType] = useState<ApiType>(initialSettings.apiType as ApiType);
     const [endpointPreset, setEndpointPreset] = useState<EndpointPreset>(initialSettings.endpointPreset as EndpointPreset);
     const [apiEndpoint, setApiEndpoint] = useState(initialSettings.apiEndpoint);
     const [apiKey, setApiKey] = useState(initialSettings.apiKey);
     const [model, setModel] = useState(initialSettings.model);
+    // カスタムモデル入力用: プリセットがcustomのとき、またはモデルがリストにないときに使う
+    const [customModelInput, setCustomModelInput] = useState(() => {
+        // 初期値: モデルが既知リストにない場合はその値をカスタム入力欄に引き継ぐ
+        const preset = initialSettings.endpointPreset as EndpointPreset;
+        const list = models[preset] || [];
+        return !list.includes(initialSettings.model) ? initialSettings.model : "";
+    });
+    const [isCustomModel, setIsCustomModel] = useState(() => {
+        const preset = initialSettings.endpointPreset as EndpointPreset;
+        if (preset === "custom") return true;
+        const list = models[preset] || [];
+        return !list.includes(initialSettings.model);
+    });
     const [azureDeployment, setAzureDeployment] = useState(initialSettings.azureDeployment);
     const [streaming, setStreaming] = useState(initialSettings.streaming);
     const [mcpEnabled, setMcpEnabled] = useState(initialSettings.mcpEnabled);
     const [mcpServersJson, setMcpServersJson] = useState(JSON.stringify(initialSettings.mcpServers || {}, null, 2));
 
+    // エンドポイントプリセット変更時の副作用
     useEffect(() => {
-        // Initial setup
-        updateEndpointOptions(apiType);
-        updateModelList(endpointPreset, model);
+        if (endpointPreset !== "custom") {
+            // プリセットが変わったらエンドポイントURLを自動設定
+            const endpoint = endpoints[endpointPreset]?.[apiType] || "";
+            setApiEndpoint(endpoint);
+        }
+
+        // カスタムプリセットに切り替えた場合は常にモデル手入力モードへ
+        if (endpointPreset === "custom") {
+            setIsCustomModel(true);
+            // 既存のモデル値をカスタム入力欄に引き継ぐ
+            setCustomModelInput(prev => prev || model);
+        } else {
+            // プリセット変更時にモデルリストを評価
+            const list = getModelList(endpointPreset);
+            if (list.includes(model)) {
+                setIsCustomModel(false);
+            } else {
+                // リストにない場合は最初のモデルを選択
+                setIsCustomModel(false);
+                setModel(list[0] || "");
+            }
+        }
+    }, [endpointPreset]);
+
+    // apiType 変更時: 互換するデフォルトプリセットへ切り替え
+    useEffect(() => {
+        const compatible = compatibleEndpoints[apiType] || [];
+        if (!compatible.includes(endpointPreset)) {
+            const newPreset = defaultPresetForApiType[apiType] || "custom";
+            setEndpointPreset(newPreset);
+            // エンドポイントURLも更新
+            if (newPreset !== "custom") {
+                const endpoint = endpoints[newPreset]?.[apiType] || "";
+                setApiEndpoint(endpoint);
+            }
+        } else if (endpointPreset !== "custom") {
+            // 同じプリセットのままapiTypeが変わった場合もURLを更新
+            const endpoint = endpoints[endpointPreset]?.[apiType] || "";
+            setApiEndpoint(endpoint);
+        }
+    }, [apiType]);
+
+    // Ollama情報取得
+    useEffect(() => {
         requestOllamaInfo();
 
         const handleWebviewMessage = (event: any) => {
@@ -173,13 +237,6 @@ function SettingsApp() {
                 if (data.method === "ollamaInfo") {
                     setOllamaAvailable(data.isAvailable || false);
                     setOllamaModels(data.models || []);
-                    console.log("Ollama info updated:", data.isAvailable, data.models);
-
-                    // Re-evaluate endpoint and model lists based on new Ollama info
-                    updateEndpointOptions(apiType);
-                    if (endpointPreset === "ollama") {
-                        updateModelList("ollama", model); // Pass current model to try to select it
-                    }
                 }
             } catch (err) {
                 console.error("Message processing error:", err);
@@ -192,77 +249,60 @@ function SettingsApp() {
         };
     }, []);
 
-    useEffect(() => {
-        setApiTypeInfoText(apiTypeDescriptions[apiType] || "");
-        updateEndpointOptions(apiType);
-        updateEndpoint(); // Call updateEndpoint explicitly
-    }, [apiType]);
-
-    useEffect(() => {
-        // This useEffect runs when endpointPreset, ollamaAvailable, or ollamaModels change
-        // And `model` might need re-evaluation based on the new list
-        updateModelList(endpointPreset, model); // Pass current model to try to preserve it
-    }, [endpointPreset, ollamaAvailable, ollamaModels]);
-
-    useEffect(() => {
-        updateEndpoint(); // Call updateEndpoint explicitly
-    }, [endpointPreset, apiType]); // Re-evaluate when preset or apiType changes
-
     const requestOllamaInfo = () => {
         webview.postMessage('{ "method": "tools/call", "params": {"name": "getOllamaInfo", "arguments": {} } }');
     };
 
-    const updateEndpoint = () => {
-        const compatible = compatibleEndpoints[apiType] || [];
-        if (!compatible.includes(endpointPreset)) {
-            setEndpointPreset("custom"); // Fallback to custom if not compatible
+    // モデルリストを取得するヘルパー
+    const getModelList = (preset: EndpointPreset): string[] => {
+        if (preset === "ollama" && ollamaAvailable && ollamaModels.length > 0) {
+            return ollamaModels;
         }
+        return models[preset] || [];
+    };
 
-        if (endpointPreset === "custom") {
-            // Keep current apiEndpoint for custom
+    // モデルセレクト変更ハンドラ
+    const handleModelSelectChange = (value: string) => {
+        if (value === CUSTOM_MODEL_VALUE) {
+            setIsCustomModel(true);
+            setCustomModelInput("");
         } else {
-            const endpoint = endpoints[endpointPreset]?.[apiType] || "";
-            setApiEndpoint(endpoint);
+            setIsCustomModel(false);
+            setModel(value);
         }
     };
 
-    const updateEndpointOptions = (currentApiType: ApiType) => {
-        const compatible = compatibleEndpoints[currentApiType] || [];
-        // No direct DOM manipulation here, need to filter options in JSX
-        // This function primarily ensures endpointPreset is compatible
-        if (!compatible.includes(endpointPreset)) {
-            setEndpointPreset("custom");
-        }
-    };
-
-    const updateModelList = (currentPreset: string, targetModel: string | null = null) => {
-        let modelOptions: string[] = [];
-
-        if (currentPreset === "ollama" && ollamaAvailable && ollamaModels.length > 0) {
-            modelOptions = ollamaModels;
-        } else {
-            modelOptions = models[currentPreset] || models.custom;
-        }
-
-        // Set model state, trying to preserve if still in list
-        if (targetModel && modelOptions.includes(targetModel)) {
-            setModel(targetModel);
-        } else if (!modelOptions.includes(model)) {
-            setModel(modelOptions[0] || ""); // Default to first available
-        }
-    };
+    // 実際に送信・保存されるモデル名
+    const effectiveModel = isCustomModel ? customModelInput : model;
 
     const handleSave = () => {
+        setSaveError(null);
+
+        let parsedMcpServers: Record<string, any> = {};
+        try {
+            parsedMcpServers = JSON.parse(mcpServersJson || "{}");
+        } catch {
+            setSaveError("MCP サーバー設定の JSON が不正です。修正してから保存してください。");
+            setActiveTab('tab-mcp');
+            return;
+        }
+
+        if (!effectiveModel.trim()) {
+            setSaveError("モデル名を入力してください。");
+            setActiveTab('tab-api');
+            return;
+        }
+
         const newSettings: Settings = {
-            apiType: apiType,
-            endpointPreset: endpointPreset,
-            apiEndpoint: apiEndpoint,
-            apiKey: apiKey,
-            model: model,
-            azureDeployment: azureDeployment,
-            streaming: streaming,
-            mcpEnabled: mcpEnabled,
-            mcpServers: JSON.parse(mcpServersJson || "{}")
+            apiType,
+            endpointPreset,
+            apiEndpoint,
+            apiKey,
+            model: effectiveModel.trim(),
+            azureDeployment,
+            streaming,
+            mcpEnabled,
+            mcpServers: parsedMcpServers
         };
         localStorage.setItem("chatSettings", JSON.stringify(newSettings));
 
@@ -270,9 +310,7 @@ function SettingsApp() {
             method: "tools/call",
             params: {
                 name: "saveSettings",
-                arguments: {
-                    settingsJson: JSON.stringify(newSettings)
-                }
+                arguments: { settingsJson: JSON.stringify(newSettings) }
             }
         }));
 
@@ -288,6 +326,8 @@ function SettingsApp() {
         webview.postMessage('{ "method": "tools/call", "params": {"name": "closeSettings", "arguments": {} } }');
     };
 
+    const currentModelList = getModelList(endpointPreset);
+
     return (
         <Box className="window" style={{ height: '100vh' }}>
             <Flex p="0" className="title-bar" align="center" justify="between">
@@ -300,6 +340,12 @@ function SettingsApp() {
             </Flex>
 
             <Box className="window-body settings-body" p="3">
+                {saveError && (
+                    <Box mb="3" p="2" style={{ background: 'var(--red-3)', borderRadius: 'var(--radius-2)', border: '1px solid var(--red-6)' }}>
+                        <Text size="2" color="red">{saveError}</Text>
+                    </Box>
+                )}
+
                 <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
                     <Tabs.List className="settings-tabs-list">
                         <Tabs.Trigger value="tab-api">API 設定</Tabs.Trigger>
@@ -308,6 +354,7 @@ function SettingsApp() {
                     </Tabs.List>
 
                     <Tabs.Content mt="4" value="tab-api" style={{ minHeight: 0, overflowY: 'auto' }}>
+                        {/* API 種別 */}
                         <Box className="form-group" mb="3">
                             <Text as="label" htmlFor="apiType" mb="2" weight="bold">API 種別</Text>
                             <Select.Root value={apiType} onValueChange={(value) => setApiType(value as ApiType)}>
@@ -320,20 +367,21 @@ function SettingsApp() {
                                 </Select.Content>
                             </Select.Root>
                             <Box mt="2">
-                                <Text size="1" color="gray" className="api-type-info">{apiTypeInfoText}</Text>
+                                <Text size="1" color="gray" className="api-type-info">{apiTypeDescriptions[apiType] || ""}</Text>
                             </Box>
                         </Box>
+
+                        {/* エンドポイント */}
                         <Box className="form-group" mt="4">
                             <Text as="label" htmlFor="endpointPreset" mb="2" weight="bold">エンドポイント</Text>
                             <Flex gap="2" align="center" className="endpoint-group">
                                 <Select.Root value={endpointPreset} onValueChange={(value) => setEndpointPreset(value as EndpointPreset)}>
                                     <Select.Trigger id="endpointPreset" style={{ flexGrow: 1 }} />
                                     <Select.Content>
-                                        {Object.entries(endpoints).map(([key, _]) => {
+                                        {Object.entries(endpoints).map(([key]) => {
                                             const compatible = compatibleEndpoints[apiType] || [];
-                                            const disabled = !compatible.includes(key) && key !== endpointPreset; // Keep selected if not compatible
-                                            if (key === "ollama" && !ollamaAvailable && !disabled) return null; // Don't show Ollama if not available
-
+                                            const disabled = !compatible.includes(key);
+                                            if (key === "ollama" && !ollamaAvailable) return null;
                                             return (
                                                 <Select.Item key={key} value={key} disabled={disabled}>
                                                     {presetDisplayNames[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '))}
@@ -351,21 +399,56 @@ function SettingsApp() {
                                 />
                             </Flex>
                         </Box>
+
+                        {/* API キー */}
                         <Box className="form-group" mt="4">
                             <Text as="label" htmlFor="apiKey" mb="2" weight="bold">API キー</Text>
                             <TextField.Root type="password" id="apiKey" placeholder="sk-..." value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
                         </Box>
+
+                        {/* モデル */}
                         <Box className="form-group" mt="4">
                             <Text as="label" htmlFor="modelSelect" mb="2" weight="bold">モデル</Text>
-                            <Select.Root value={model} onValueChange={setModel}>
-                                <Select.Trigger id="modelSelect" />
-                                <Select.Content>
-                                    {(endpointPreset === "ollama" && ollamaAvailable && ollamaModels.length > 0 ? ollamaModels : models[endpointPreset] || models.custom).map(m => (
-                                        <Select.Item key={m} value={m}>{m}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
+                            {endpointPreset === "custom" ? (
+                                // カスタムプリセット: 常にテキスト入力
+                                <TextField.Root
+                                    id="modelSelect"
+                                    placeholder="例: gpt-4o-mini, llama3, claude-3-5-sonnet..."
+                                    value={customModelInput}
+                                    onChange={(e) => setCustomModelInput(e.target.value)}
+                                />
+                            ) : (
+                                // 既知プリセット: セレクト＋「カスタム入力」オプション
+                                <Flex gap="2" direction="column">
+                                    <Select.Root
+                                        value={isCustomModel ? CUSTOM_MODEL_VALUE : model}
+                                        onValueChange={handleModelSelectChange}
+                                    >
+                                        <Select.Trigger id="modelSelect" />
+                                        <Select.Content>
+                                            {currentModelList.map(m => (
+                                                <Select.Item key={m} value={m}>{m}</Select.Item>
+                                            ))}
+                                            <Select.Separator />
+                                            <Select.Item value={CUSTOM_MODEL_VALUE}>カスタム（手入力）</Select.Item>
+                                        </Select.Content>
+                                    </Select.Root>
+                                    {isCustomModel && (
+                                        <TextField.Root
+                                            placeholder="モデル名を入力..."
+                                            value={customModelInput}
+                                            onChange={(e) => setCustomModelInput(e.target.value)}
+                                            autoFocus
+                                        />
+                                    )}
+                                </Flex>
+                            )}
+                            {effectiveModel && (
+                                <Text size="1" color="gray" mt="1">使用するモデル: {effectiveModel}</Text>
+                            )}
                         </Box>
+
+                        {/* Azure デプロイ名 */}
                         <Box className="form-group" mt="4" style={{ display: endpointPreset === "azure_openai" ? 'block' : 'none' }}>
                             <Text as="label" htmlFor="azureDeployment" mb="2" weight="bold">Azure OpenAI デプロイ名</Text>
                             <TextField.Root type="text" id="azureDeployment" placeholder="gpt-4o-mini" value={azureDeployment} onChange={(e) => setAzureDeployment(e.target.value)} />
@@ -399,7 +482,7 @@ function SettingsApp() {
                                 placeholder='{
 "filesystem": {
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\Users\user\Desktop"]
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\Users\\user\\Desktop"]
 }
 }'
                                 value={mcpServersJson}
