@@ -3,7 +3,7 @@ import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
 import hljs from 'highlight.js';
-import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, type ToolCall, convertToOpenAITools } from './chatUtils';
+import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, type ToolCall, convertToOpenAITools, convertToAnthropicTools } from './chatUtils';
 
 // Create a new Marked instance and configure it
 const customMarked = new Marked();
@@ -515,8 +515,12 @@ function App() {
     // Build messages with user message only (tools are passed separately to API)
     const localMessages: ChatMessage[] = [userMessage];
     
-    // Convert MCP tools to OpenAI format
-    const openaiTools = convertToOpenAITools(availableTools);
+    // MCP無効時はツールを送らない。APIの種類に応じてフォーマットを変換
+    const openaiTools = currentSettings.mcpEnabled
+      ? (currentSettings.apiType === 'claude'
+          ? convertToAnthropicTools(availableTools)
+          : convertToOpenAITools(availableTools))
+      : [];
     
     // Add user message to UI
     addMessage(messageToSend, "user");
@@ -665,12 +669,12 @@ function App() {
                         </Box>
                       </Box>
                     ) : (
-                      <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
-                        <Box
-                          className="message-content"
-                          dangerouslySetInnerHTML={{ __html: message.role === 'assistant' ? customMarked.parse(message.content) : message.content }}
-                        />
-                      </Box>
+                    <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
+                      <Box
+                        className="message-content"
+                        dangerouslySetInnerHTML={{ __html: message.role === 'assistant' ? customMarked.parse(message.content) : message.content }}
+                      />
+                    </Box>
                     )
                   ))
                 )}
