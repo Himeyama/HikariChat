@@ -635,3 +635,23 @@ export function convertToOpenAITools(tools: McpToolInfo[]): OpenAI.Chat.ChatComp
     };
   });
 }
+/**
+ * Convert MCP tools to Anthropic format.
+ * Anthropic requires { type: 'custom', name, description, input_schema } instead of OpenAI's function wrapper.
+ */
+export function convertToAnthropicTools(tools: McpToolInfo[]): Anthropic.Tool[] {
+  return tools.map(tool => {
+    const schema = tool.jsonSchema;
+    const input_schema: Anthropic.Tool.InputSchema = {
+      type: 'object',
+      properties: schema?.properties ?? {},
+      ...(schema?.required ? { required: schema.required } : {}),
+    };
+    return {
+      type: 'custom' as const,
+      name: tool.name,
+      description: tool.description ?? '',
+      input_schema,
+    };
+  });
+}
