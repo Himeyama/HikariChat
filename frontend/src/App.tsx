@@ -217,13 +217,15 @@ function App() {
 
   const addMessage = (content: string, role: ChatMessage['role'], toolName?: string, toolCallId?: string) => {
     setTabs(prevTabs => {
+      // activeTabIdRef を使うことで非同期処理中のタブ切り替えにも対応
+      const currentTabId = activeTabIdRef.current;
       const message: ChatMessage = { role, content };
       if (toolName) message.name = toolName;
       if (toolCallId) message.tool_call_id = toolCallId;
-      const updatedHistory = [...prevTabs[activeTabId].conversationHistory, message];
+      const updatedHistory = [...prevTabs[currentTabId].conversationHistory, message];
       return {
         ...prevTabs,
-        [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: updatedHistory }
+        [currentTabId]: { ...prevTabs[currentTabId], conversationHistory: updatedHistory }
       };
     });
   };
@@ -506,15 +508,19 @@ function App() {
 
     setTabs(prevTabs => ({
       ...prevTabs,
-      [activeTabId]: { ...prevTabs[activeTabId], isLoading: true }
+      [activeTabIdRef.current]: { ...prevTabs[activeTabIdRef.current], isLoading: true }
     }));
 
     const messageToSend = chatInput.trim();
     const userMessage: ChatMessage = { role: "user", content: messageToSend };
 
-    // Build messages with user message only (tools are passed separately to API)
-    const localMessages: ChatMessage[] = [userMessage];
-    
+    // 過去の会話履歴を含めてAPIに送信するメッセージを構築
+    // UIに表示されるメッセージ（error/tool）はAPIに送らないようフィルタリング
+    const historyForApi = (activeTab.conversationHistory ?? []).filter(
+      m => m.role !== 'error' && m.role !== 'tool'
+    );
+    const localMessages: ChatMessage[] = [...historyForApi, userMessage];
+
     // Convert MCP tools to OpenAI format
     const openaiTools = convertToOpenAITools(availableTools);
     
@@ -533,7 +539,7 @@ function App() {
     } finally {
       setTabs(prevTabs => ({
         ...prevTabs,
-        [activeTabId]: { ...prevTabs[activeTabId], isLoading: false }
+        [activeTabIdRef.current]: { ...prevTabs[activeTabIdRef.current], isLoading: false }
       }));
     }
   };
