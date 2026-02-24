@@ -382,3 +382,68 @@
 .settings-tabs-list button {
     outline: 0 !important;
 }
+
+/* Tool Messages */
+.chat-message.tool {
+    margin-bottom: var(--space-2);
+    padding: 0 var(--space-3);
+}
+
+.tool-message-header {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    background: var(--green-3);
+    border: 1px solid var(--green-6);
+    color: var(--green-11);
+    border-radius: var(--radius-3) var(--radius-3) 0 0;
+    padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-bold);
+}
+
+.tool-message-icon {
+    font-family: 'Segoe Fluent Icons' !important;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.tool-message-name {
+    font-family: "PlemolJP Console NF", "Cascadia Code", consolas, monospace;
+    font-size: var(--font-size-1) !important;
+    font-weight: bold;
+    letter-spacing: 0.02em;
+    margin-left: 8px;
+}
+
+.tool-message-result {
+    background: var(--gray-2);
+    border: 1px solid var(--green-6);
+    border-top: none;
+    border-radius: 0 0 var(--radius-3) var(--radius-3);
+    overflow: hidden;
+}
+
+.tool-message-result-label {
+    display: block;
+    font-size: var(--font-size-1);
+    font-weight: bold;
+    color: var(--gray-10);
+    padding: var(--space-1) var(--space-3);
+    background: var(--gray-3);
+    border-bottom: 1px solid var(--gray-5);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tool-message-result-content {
+    font-family: "PlemolJP Console NF", "Cascadia Code", consolas, monospace;
+    font-size: var(--font-size-1);
+    color: var(--gray-11);
+    padding: var(--space-2) var(--space-3);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 120px;
+    overflow-y: auto;
+    line-height: var(--line-height-2);
+}
