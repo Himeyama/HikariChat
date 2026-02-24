@@ -118,10 +118,6 @@ function App() {
           // Use the settings directly from the message, as C# sends the current state
           setCurrentSettings(parsedData.settings);
           console.log('[Settings Updated From C#]', parsedData.settings);
-          // MCP が無効に変更された場合はツール一覧をクリア
-          if (!parsedData.settings?.mcpEnabled) {
-            setAvailableTools([]);
-          }
           // updateModelDisplay and updateMcpStatusDisplay will be called via useEffect due to currentSettings change
         } else if (parsedData.method === "mcpStatus") {
           updateMcpStatusDisplay(parsedData);
@@ -158,20 +154,10 @@ function App() {
       grok: 'Grok (xAI)',
       anthropic: 'Anthropic',
       ollama: 'Ollama',
+      custom: 'Custom'
     };
 
-    const apiTypeNames: Record<string, string> = {
-      chat_completions: 'Chat Completions',
-      azure: 'Azure OpenAI',
-      claude: 'Claude API',
-      gemini: 'Gemini API',
-    };
-
-    // カスタムエンドポイントの場合はAPI種別名を表示
-    const providerName = endpointPreset === 'custom'
-      ? (apiTypeNames[currentSettings.apiType] || currentSettings.apiType)
-      : (presetNames[endpointPreset] || endpointPreset);
-
+    const providerName = presetNames[endpointPreset] || endpointPreset;
     setModelDisplayName(`${providerName} / ${model}`);
   };
 
@@ -231,14 +217,13 @@ function App() {
 
   const addMessage = (content: string, role: ChatMessage['role'], toolName?: string, toolCallId?: string) => {
     setTabs(prevTabs => {
-      const currentTabId = activeTabIdRef.current;
       const message: ChatMessage = { role, content };
       if (toolName) message.name = toolName;
       if (toolCallId) message.tool_call_id = toolCallId;
-      const updatedHistory = [...prevTabs[currentTabId].conversationHistory, message];
+      const updatedHistory = [...prevTabs[activeTabId].conversationHistory, message];
       return {
         ...prevTabs,
-        [currentTabId]: { ...prevTabs[currentTabId], conversationHistory: updatedHistory }
+        [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: updatedHistory }
       };
     });
   };
@@ -521,20 +506,17 @@ function App() {
 
     setTabs(prevTabs => ({
       ...prevTabs,
-      [activeTabIdRef.current]: { ...prevTabs[activeTabIdRef.current], isLoading: true }
+      [activeTabId]: { ...prevTabs[activeTabId], isLoading: true }
     }));
 
     const messageToSend = chatInput.trim();
     const userMessage: ChatMessage = { role: "user", content: messageToSend };
 
-    // 過去の会話履歴を含めてAPIに送信（error/toolはUI専用なので除外）
-    const historyForApi = (activeTab.conversationHistory ?? []).filter(
-      m => m.role !== 'error' && m.role !== 'tool'
-    );
-    const localMessages: ChatMessage[] = [...historyForApi, userMessage];
-
-    // MCP無効時はツールを送らない
-    const openaiTools = currentSettings.mcpEnabled ? convertToOpenAITools(availableTools) : [];
+    // Build messages with user message only (tools are passed separately to API)
+    const localMessages: ChatMessage[] = [userMessage];
+    
+    // Convert MCP tools to OpenAI format
+    const openaiTools = convertToOpenAITools(availableTools);
     
     // Add user message to UI
     addMessage(messageToSend, "user");
@@ -551,7 +533,7 @@ function App() {
     } finally {
       setTabs(prevTabs => ({
         ...prevTabs,
-        [activeTabIdRef.current]: { ...prevTabs[activeTabIdRef.current], isLoading: false }
+        [activeTabId]: { ...prevTabs[activeTabId], isLoading: false }
       }));
     }
   };
@@ -671,12 +653,25 @@ function App() {
                   </Text>
                 ) : (
                   tab.conversationHistory.map((message, index) => (
-                    <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
-                      <Box
-                        className="message-content"
-                        dangerouslySetInnerHTML={{ __html: message.role === 'assistant' ? customMarked.parse(message.content) : message.content }}
-                      />
-                    </Box>
+                    message.role === 'tool' ? (
+                      <Box key={index} className="chat-message tool">
+                        <Box className="tool-message-header">
+                          <Text className="tool-message-icon">&#xEC7A;</Text>
+                          <Text className="tool-message-name">{message.name || 'tool'}</Text>
+                        </Box>
+                        <Box className="tool-message-result">
+                          <Text className="tool-message-result-label">結果</Text>
+                          <Box className="tool-message-result-content">{message.content}</Box>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
+                        <Box
+                          className="message-content"
+                          dangerouslySetInnerHTML={{ __html: message.role === 'assistant' ? customMarked.parse(message.content) : message.content }}
+                        />
+                      </Box>
+                    )
                   ))
                 )}
               </Box>
