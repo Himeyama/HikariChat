@@ -282,12 +282,15 @@ async function sendToAzureOpenAI(
   options: SendMessageOptions,
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
-  if (!options.azureDeployment) {
+  if (!options.azureDeployment && options.endpointPreset == "")
     throw new Error('Azure OpenAI を使用するにはデプロイ名が必要です');
-  }
 
   const url = new URL(options.apiEndpoint);
-  const endpoint = `${url.protocol}//${url.host}`;
+  let endpoint = `${url.protocol}//${url.host}`;
+
+  if(options.endpointPreset != "azure_openai")
+    endpoint = options.apiEndpoint;
+
   const apiVersion = url.searchParams.get('api-version') ?? '2024-02-15-preview';
 
   const openai = new AzureOpenAI({
