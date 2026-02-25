@@ -649,7 +649,6 @@ function App() {
           <Text className="model-display">{modelDisplayName}</Text>
           <Box />
           <Text className={`mcp-status-display ${mcpStatusClass}`}>{mcpStatus}</Text>
-          <Button onClick={addTab} className="add-tab-button" title="新しいタブを追加">＋</Button>
           <Button onClick={resetChat} className="reset-button" title="チャットをリセット">リセット</Button>
           <Button onClick={openSettingsWindow} className="settings-button" title="設定">設定</Button>
         </Box>
@@ -664,6 +663,7 @@ function App() {
                 </Box>
               </Tabs.Trigger>
             ))}
+            <Button onClick={addTab} className="add-tab-button" title="新しいタブを追加">＋</Button>
           </Tabs.List>
 
           {Object.entries(tabs).map(([tabId, tab]) => (

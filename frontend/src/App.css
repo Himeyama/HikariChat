@@ -38,7 +38,7 @@
 /* Chat Header */
 .chat-header {
     display: grid !important;
-    grid-template-columns: auto 1fr auto auto auto auto !important;
+    grid-template-columns: auto 1fr auto auto auto !important;
     grid-auto-flow: column;
     align-items: center;
     gap: var(--space-2);
@@ -88,6 +88,12 @@
     margin-bottom: var(--space-3);
     border-bottom: 1px solid var(--gray-6);
     display: flex;
+    align-items: center;
+}
+
+.add-tab-button {
+    margin-left: var(--space-2);
+    cursor: pointer;
 }
 
 .chat-tabs-list .rt-TabsTrigger .rt-Button:hover {
@@ -447,4 +453,18 @@
     max-height: 120px;
     overflow-y: auto;
     line-height: var(--line-height-2);
+}
+
+.add-tab-button {
+    background-color: transparent !important;
+    color: #65686c !important;
+    font-family: 'Segoe Fluent Icons' !important;
+    margin-left: 8px !important;
+    transition: .3s !important;
+    padding-bottom: 3px !important;
+}
+
+.add-tab-button:hover {
+    background: #eef1f0 !important;
+    color: #3a3a3a !important;
 }
