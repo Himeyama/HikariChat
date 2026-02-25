@@ -157,11 +157,21 @@ function App() {
       gemini: 'Google Gemini',
       grok: 'Grok (xAI)',
       anthropic: 'Anthropic',
-      ollama: 'Ollama',
-      custom: 'Custom'
+      ollama: 'Ollama'
     };
 
-    const providerName = presetNames[endpointPreset] || endpointPreset;
+    const apiTypeNames: Record<string, string> = {
+      chat_completions: 'Chat Completions',
+      azure: 'Azure OpenAI',
+      claude: 'Claude API',
+      gemini: 'Gemini API',
+    };
+
+    // カスタムエンドポイントの場合はAPI種別名を表示
+    const providerName = endpointPreset === 'custom'
+      ? (apiTypeNames[currentSettings.apiType] || currentSettings.apiType)
+      : (presetNames[endpointPreset] || endpointPreset);
+
     setModelDisplayName(`${providerName} / ${model}`);
   };
 
