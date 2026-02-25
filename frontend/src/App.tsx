@@ -39,6 +39,7 @@ interface ChatMessage {
 }
 
 interface ChatTab {
+  name: string;
   conversationHistory: ChatMessage[];
   isLoading: boolean;
 }
@@ -86,7 +87,7 @@ function App() {
   const activeTabIdRef = useRef<string>('tab-chat-1');
   const [tabCounter, setTabCounter] = useState(1);
   const [tabs, setTabs] = useState<Record<string, ChatTab>>({
-    'tab-chat-1': { conversationHistory: [], isLoading: false },
+    'tab-chat-1': { name: '新しいタブ', conversationHistory: [], isLoading: false },
   });
   const [activeTabId, setActiveTabId] = useState('tab-chat-1');
   const [currentSettings, setCurrentSettings] = useState<Settings>(loadSettings());
@@ -525,6 +526,17 @@ function App() {
     }));
 
     const messageToSend = chatInput.trim();
+
+    // タブ名が「新しいタブ」の場合、メッセージの先頭6文字をタブ名に設定
+    if (activeTab.name === '新しいタブ') {
+        setTabs(prevTabs => ({
+            ...prevTabs,
+            [activeTabId]: {
+                ...prevTabs[activeTabId],
+                name: messageToSend.substring(0, 6),
+            }
+        }));
+    }
     const userMessage: ChatMessage = { role: "user", content: messageToSend };
 
     // 過去の会話履歴を含めてAPIに送信（error/toolはUI専用なので除外）
@@ -565,7 +577,7 @@ function App() {
     const newTabId = `tab-chat-${tabCounter + 1}`;
     setTabs(prevTabs => ({
       ...prevTabs,
-      [newTabId]: { conversationHistory: [], isLoading: false }
+      [newTabId]: { name: '新しいタブ', conversationHistory: [], isLoading: false }
     }));
     setActiveTabId(newTabId);
   };
@@ -598,7 +610,7 @@ function App() {
   const resetChat = () => {
     setTabs(prevTabs => ({
       ...prevTabs,
-      [activeTabId]: { conversationHistory: [], isLoading: false }
+      [activeTabId]: { name: '新しいタブ', conversationHistory: [], isLoading: false }
     }));
   };
 
@@ -655,10 +667,10 @@ function App() {
 
         <Tabs.Root value={activeTabId} onValueChange={switchTab} className="chat-tabs-root">
           <Tabs.List className="chat-tabs-list">
-            {Object.entries(tabs).map(([tabId, _tab]) => (
+            {Object.entries(tabs).map(([tabId, tab]) => (
               <Tabs.Trigger value={tabId} key={tabId}>
                 <Box className="chat-tab-trigger-content">
-                  <Text>{`チャット ${tabId.split('-').pop()}`}</Text>
+                  <Text>{tab.name}</Text>
                     <Text ml="4" size="1" className="tab-close-button" onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}>&#xE8BB;</Text>
                 </Box>
               </Tabs.Trigger>
