@@ -6,7 +6,7 @@ import hljs from 'highlight.js';
 import { sendChatMessage, executeMcpTool, buildMessagesForNextRequest, getAvailableTools, type ToolCall, convertToOpenAITools, convertToAnthropicTools } from './chatUtils';
 
 // Create a new Marked instance and configure it
-const customMarked = new Marked();
+const customMarked = new Marked({ breaks: true });
 customMarked.use({
   renderer: {
     code({ text, lang = '' }: { text: string, lang?: string }) {
@@ -690,7 +690,7 @@ function App() {
                     <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
                       <Box
                         className="message-content"
-                        dangerouslySetInnerHTML={{ __html: message.role === 'assistant' ? customMarked.parse(message.content) : message.content }}
+                        dangerouslySetInnerHTML={{ __html: (message.role === 'assistant' || message.role === 'user') ? customMarked.parse(message.content) as string : message.content }}
                       />
                     </Box>
                     )
