@@ -119,6 +119,10 @@ function App() {
           setCurrentSettings(parsedData.settings);
           console.log('[Settings Updated From C#]', parsedData.settings);
           // updateModelDisplay and updateMcpStatusDisplay will be called via useEffect due to currentSettings change
+          // MCP が無効に変更された場合はツール一覧をクリア
+          if (!parsedData.settings?.mcpEnabled) {
+            setAvailableTools([]);
+          }
         } else if (parsedData.method === "mcpStatus") {
           updateMcpStatusDisplay(parsedData);
           // MCP が準備完了したらツール一覧を取得
@@ -217,13 +221,14 @@ function App() {
 
   const addMessage = (content: string, role: ChatMessage['role'], toolName?: string, toolCallId?: string) => {
     setTabs(prevTabs => {
+      const currentTabId = activeTabIdRef.current;
       const message: ChatMessage = { role, content };
       if (toolName) message.name = toolName;
       if (toolCallId) message.tool_call_id = toolCallId;
-      const updatedHistory = [...prevTabs[activeTabId].conversationHistory, message];
+      const updatedHistory = [...prevTabs[currentTabId].conversationHistory, message];
       return {
         ...prevTabs,
-        [activeTabId]: { ...prevTabs[activeTabId], conversationHistory: updatedHistory }
+        [currentTabId]: { ...prevTabs[currentTabId], conversationHistory: updatedHistory }
       };
     });
   };
@@ -506,15 +511,18 @@ function App() {
 
     setTabs(prevTabs => ({
       ...prevTabs,
-      [activeTabId]: { ...prevTabs[activeTabId], isLoading: true }
+      [activeTabIdRef.current]: { ...prevTabs[activeTabIdRef.current], isLoading: true }
     }));
 
     const messageToSend = chatInput.trim();
     const userMessage: ChatMessage = { role: "user", content: messageToSend };
 
-    // Build messages with user message only (tools are passed separately to API)
-    const localMessages: ChatMessage[] = [userMessage];
-    
+    // 過去の会話履歴を含めてAPIに送信（error/toolはUI専用なので除外）
+    const historyForApi = (activeTab.conversationHistory ?? []).filter(
+      m => m.role !== 'error' && m.role !== 'tool'
+    );
+    const localMessages: ChatMessage[] = [...historyForApi, userMessage];
+
     // MCP無効時はツールを送らない。APIの種類に応じてフォーマットを変換
     const openaiTools = currentSettings.mcpEnabled
       ? (currentSettings.apiType === 'claude'
