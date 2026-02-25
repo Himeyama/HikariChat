@@ -670,8 +670,8 @@ function App() {
             {Object.entries(tabs).map(([tabId, tab]) => (
               <Tabs.Trigger value={tabId} key={tabId}>
                 <Box className="chat-tab-trigger-content">
-                  <Text>{tab.name}</Text>
-                    <Text ml="4" size="1" className="tab-close-button" onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}>&#xE8BB;</Text>
+                  <Text mt="1" size="1">{tab.name}</Text>
+                    <Text ml="2" size="1" className="tab-close-button" onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}>&#xE8BB;</Text>
                 </Box>
               </Tabs.Trigger>
             ))}

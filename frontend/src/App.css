@@ -91,6 +91,12 @@
     align-items: center;
 }
 
+.chat-tabs-list .rt-TabsTrigger {
+    width: 176px;
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
 .add-tab-button {
     margin-left: var(--space-2);
     cursor: pointer;
@@ -342,10 +348,10 @@
 }
 
 .chat-tab-trigger-content {
-    display: grid;
-    grid-auto-flow: column;
-    align-items: center;
+    display: grid !important;
     gap: var(--space-2);
+    width: 100%;
+    grid-template-columns: 1fr auto;
 }
 
 .chat-tab-content {
@@ -378,7 +384,7 @@
 .tab-close-button {
     font-family: 'Segoe Fluent Icons';
     font-size: 8px !important;
-    padding: 4px;
+    padding: 4px 8px !important;
 }
 
 .tab-close-button:hover {
@@ -467,4 +473,8 @@
 .add-tab-button:hover {
     background: #eef1f0 !important;
     color: #3a3a3a !important;
+}
+
+.rt-BaseTabListTriggerInner.rt-TabsTriggerInner {
+    width: 160px !important;
 }
