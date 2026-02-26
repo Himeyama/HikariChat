@@ -330,14 +330,12 @@ function SettingsApp() {
 
     return (
         <Box className="window" style={{ height: '100vh' }}>
-            <Flex p="0" className="title-bar settings-title-bar" align="center" justify="between">
-                <Flex pl="2">
+            <Box p="0" className="title-bar settings-title-bar">
+                <Box className="title-bar-center">
                     <Text size="2" weight="bold" className="title-bar-text">設定</Text>
-                </Flex>
-                <Flex gap="1">
-                    <Button className="window-control-icon close-button" aria-label="Close" size="1" onClick={closeButtonHandler}>&#xEF2C;</Button>
-                </Flex>
-            </Flex>
+                </Box>
+                <Button className="window-control-icon close-button" aria-label="Close" onClick={closeButtonHandler}>&#xEF2C;</Button>
+            </Box>
 
             <Box className="window-body settings-body" p="3">
                 {saveError && (

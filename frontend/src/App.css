@@ -117,6 +117,10 @@
     grid-template-columns: 1fr auto !important;
 }
 
+.settings-title-bar .close-button{
+    margin: auto 0 auto auto;
+}
+
 .window-control-icon.close-button:hover {
     background-color: #E81123 !important;
     color: #FFFFFF !important;
