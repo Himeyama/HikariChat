@@ -608,13 +608,6 @@ function App() {
     });
   };
 
-  const resetChat = () => {
-    setTabs(prevTabs => ({
-      ...prevTabs,
-      [activeTabId]: { name: '新しいタブ', conversationHistory: [], isLoading: false }
-    }));
-  };
-
   const updateSendButtonState = () => {
     // This is implicitly handled by `sendMessage`'s early return and button disabled state
   };
@@ -657,27 +650,25 @@ function App() {
   return (
     <Box className="window">
       <Box className="title-bar" p="0">
-        <Box p="2">
+        <Button className="window-control-icon settings-icon" onClick={openSettingsWindow} title="設定">&#xF8B0;</Button>
+        <Box className="title-bar-center">
           <Text weight="bold" className="title-bar-text">ひかりチャット</Text>
         </Box>
         <Box className="title-bar-controls">
-          <Button className="window-control-icon" aria-label="Minimize" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "minimize" }} }')}>&#xEF2D;</Button>
-          <Button className="window-control-icon" aria-label={isMaximized ? "Restore" : "Maximize"} onClick={() => {
-              setIsMaximized(prev => !prev);
-              webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "toggleMaximize" }} }');
-            }}>{isMaximized ? '\uEF2F' : '\uEF2E'}</Button>
-          <Button className="window-control-icon close-button" aria-label="Close" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "close" }} }')}>&#xEF2C;</Button>
+          <Box className="title-bar-right">
+            <Text className="title-bar-info">{modelDisplayName}</Text>
+            <Text className={`title-bar-info title-bar-mcp ${mcpStatusClass}`}>{mcpStatus}</Text>
+            <Button className="window-control-icon" aria-label="Minimize" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "minimize" }} }')}>&#xEF2D;</Button>
+            <Button className="window-control-icon" aria-label={isMaximized ? "Restore" : "Maximize"} onClick={() => {
+                setIsMaximized(prev => !prev);
+                webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "toggleMaximize" }} }');
+              }}>{isMaximized ? '\uEF2F' : '\uEF2E'}</Button>
+            <Button className="window-control-icon close-button" aria-label="Close" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "close" }} }')}>&#xEF2C;</Button>
+          </Box>
         </Box>
       </Box>
 
-      <Box className="window-body" p="3">
-        <Box className="chat-header" mb="3">
-          <Text className="model-display">{modelDisplayName}</Text>
-          <Box />
-          <Text className={`mcp-status-display ${mcpStatusClass}`}>{mcpStatus}</Text>
-          <Button onClick={resetChat} className="reset-button" title="チャットをリセット">リセット</Button>
-          <Button onClick={openSettingsWindow} className="settings-button" title="設定">設定</Button>
-        </Box>
+      <Box className="window-body">
 
         <Tabs.Root value={activeTabId} onValueChange={switchTab} className="chat-tabs-root">
           <Tabs.List className="chat-tabs-list">

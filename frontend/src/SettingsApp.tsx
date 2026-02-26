@@ -330,7 +330,7 @@ function SettingsApp() {
 
     return (
         <Box className="window" style={{ height: '100vh' }}>
-            <Flex p="0" className="title-bar" align="center" justify="between">
+            <Flex p="0" className="title-bar settings-title-bar" align="center" justify="between">
                 <Flex pl="2">
                     <Text size="2" weight="bold" className="title-bar-text">設定</Text>
                 </Flex>
