@@ -349,9 +349,16 @@
 
 .chat-tab-trigger-content {
     display: grid !important;
-    gap: var(--space-2);
+    gap: var(--space-1);
     width: 100%;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.tab-name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .chat-tab-content {

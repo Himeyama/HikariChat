@@ -527,13 +527,13 @@ function App() {
 
     const messageToSend = chatInput.trim();
 
-    // タブ名が「新しいタブ」の場合、メッセージの先頭6文字をタブ名に設定
+    // タブ名が「新しいタブ」の場合、メッセージをタブ名に設定（表示はCSSで省略）
     if (activeTab.name === '新しいタブ') {
         setTabs(prevTabs => ({
             ...prevTabs,
             [activeTabId]: {
                 ...prevTabs[activeTabId],
-                name: messageToSend.substring(0, 6),
+                name: messageToSend,
             }
         }));
     }
@@ -670,8 +670,8 @@ function App() {
             {Object.entries(tabs).map(([tabId, tab]) => (
               <Tabs.Trigger value={tabId} key={tabId}>
                 <Box className="chat-tab-trigger-content">
-                  <Text mt="1" size="1">{tab.name}</Text>
-                    <Text ml="2" size="1" className="tab-close-button" onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}>&#xE8BB;</Text>
+                  <Text mt="1" size="1" className="tab-name-text">{tab.name}</Text>
+                    <Text size="1" className="tab-close-button" onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}>&#xE8BB;</Text>
                 </Box>
               </Tabs.Trigger>
             ))}
