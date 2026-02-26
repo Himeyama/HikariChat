@@ -92,9 +92,10 @@
 }
 
 .chat-tabs-list .rt-TabsTrigger {
-    width: 176px;
-    flex-shrink: 0;
-    flex-grow: 0;
+    flex: 1;
+    max-width: 176px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .add-tab-button {
@@ -483,5 +484,9 @@
 }
 
 .chat-tabs-list .rt-BaseTabListTriggerInner.rt-TabsTriggerInner {
-    width: 160px !important;
+    width: 100% !important;
+}
+
+.add-tab-button {
+    flex-shrink: 0;
 }
