@@ -42,8 +42,6 @@
     grid-auto-flow: column;
     align-items: center;
     gap: var(--space-2);
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--gray-6);
 }
 
 .model-display {
@@ -138,6 +136,7 @@
     flex-grow: 1; /* Restoring this as per user request to fix scrolling */
     overflow-y: scroll;
     padding: var(--space-3);
+    padding-bottom: calc(100vh - 294px);
     min-height: 0;
 }
 

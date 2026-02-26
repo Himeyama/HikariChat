@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
@@ -83,8 +83,9 @@ function loadSettings(): Settings {
 
 
 function App() {
-  const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const activeTabIdRef = useRef<string>('tab-chat-1');
+  const prevActiveTabIdRef = useRef<string>('tab-chat-1');
   const [tabCounter, setTabCounter] = useState(1);
   const [tabs, setTabs] = useState<Record<string, ChatTab>>({
     'tab-chat-1': { name: '新しいタブ', conversationHistory: [], isLoading: false },
@@ -618,27 +619,40 @@ function App() {
     // This is implicitly handled by `sendMessage`'s early return and button disabled state
   };
 
+  // タブ切り替え時に一番下にスクロール
   useEffect(() => {
-    if (chatMessagesRef.current && tabs[activeTabId].conversationHistory.length > 0) {
-      const chatMessagesElement = chatMessagesRef.current;
-      const lastMessage = tabs[activeTabId].conversationHistory[tabs[activeTabId].conversationHistory.length - 1];
+    const timer = setTimeout(() => {
+      const el = chatMessagesRefs.current[activeTabId];
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [activeTabId]);
 
-      // Use a timeout to ensure DOM has updated with new messages
-      setTimeout(() => {
-        if (lastMessage.role === 'user') {
-          // Find the last user message DOM element
-          const lastUserMessageElement = chatMessagesElement.querySelector('.chat-message.user:last-child');
-          if (lastUserMessageElement) {
-            chatMessagesElement.scrollTop = (lastUserMessageElement as HTMLElement).offsetTop;
-          }
-        } else {
-            // For assistant messages, or if the user specifically wants to scroll to the very bottom
-            // We can keep the always scroll to bottom behaviour here for other messages.
-            chatMessagesElement.scrollTop = chatMessagesElement.scrollHeight;
-        }
-      }, 0);
+  useLayoutEffect(() => {
+    const el = chatMessagesRefs.current[activeTabId];
+    if (!el) return;
+
+    const tabChanged = prevActiveTabIdRef.current !== activeTabId;
+    prevActiveTabIdRef.current = activeTabId;
+
+    if (tabChanged) {
+      return;
     }
-  }, [tabs[activeTabId].conversationHistory, activeTabId]); // Trigger when conversation history or active tab changes
+
+    const history = tabs[activeTabId].conversationHistory;
+    if (history.length === 0) return;
+
+    const lastMessage = history[history.length - 1];
+    if (lastMessage.role === 'user') {
+      // 最後のユーザーメッセージをコンテナの最上部に表示
+      const userMessages = el.querySelectorAll('.chat-message.user');
+      const lastUserMessageElement = userMessages[userMessages.length - 1] as HTMLElement | undefined;
+      lastUserMessageElement?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    }
+    // アシスタント返信中はスクロールしない
+  }, [tabs[activeTabId].conversationHistory, activeTabId]);
 
   return (
     <Box className="window">
@@ -679,8 +693,8 @@ function App() {
           </Tabs.List>
 
           {Object.entries(tabs).map(([tabId, tab]) => (
-            <Tabs.Content value={tabId} key={tabId} className="chat-tab-content">
-              <Box className="chat-messages" p="3" ref={chatMessagesRef}>
+            <Tabs.Content value={tabId} key={tabId} className="chat-tab-content" forceMount>
+              <Box className="chat-messages" p="3" ref={(el) => { chatMessagesRefs.current[tabId] = el; }}>
                 {tab.conversationHistory.length === 0 ? (
                   <Text color="gray" size="2" style={{ textAlign: 'center', display: 'block', padding: 'var(--space-5)' }}>
                     AI とのチャットを開始しましょう
