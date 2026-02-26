@@ -12,7 +12,7 @@
 |-----------|-------------|---------------|
 | `chat_completions` | OpenAI, Grok (xAI), Ollama, Custom | [`openai`](https://www.npmjs.com/package/openai) |
 | `azure` | Azure OpenAI | [`openai`](https://www.npmjs.com/package/openai) (AzureOpenAI クラス) |
-| `gemini` | Google Gemini | [`@google/generative-ai`](https://www.npmjs.com/package/@google/generative-ai) |
+| `gemini` | Google Gemini | [`@google/genai`](https://www.npmjs.com/package/@google/genai) |
 | `claude` | Anthropic Claude | [`@anthropic-ai/sdk`](https://www.npmjs.com/package/@anthropic-ai/sdk) |
 
 ## 実装詳細
@@ -102,28 +102,28 @@ async function sendToAzureOpenAI(
 
 #### Google Gemini (`sendToGemini`)
 
-Google Generative AI SDK を使用。
+Google GenAI SDK を使用。
 
 ```typescript
 async function sendToGemini(
   messages: ChatMessage[],
   options: SendMessageOptions
 ): Promise<SendMessageResult> {
-  const genAI = new GoogleGenerativeAI(options.apiKey);
-  const model = genAI.getGenerativeModel({ model: options.model });
+  const ai = new GoogleGenAI({ apiKey: options.apiKey });
 
-  const chat = model.startChat({
-    history: chatMessages.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }))
+  const contents = nonSystemMessages.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }],
+  }));
+
+  const response = await ai.models.generateContent({
+    model: options.model,
+    contents,
+    config: { systemInstruction },
   });
 
-  const result = await chat.sendMessage(systemInstruction || '');
-  const response = await result.response;
-
   return {
-    content: response.text(),
+    content: response.text ?? '',
     toolCalls: []
   };
 }
@@ -240,7 +240,7 @@ const toolCalls = response.content
   "dependencies": {
     "openai": "^x.x.x",
     "@anthropic-ai/sdk": "^x.x.x",
-    "@google/generative-ai": "^x.x.x"
+    "@google/genai": "^x.x.x"
   }
 }
 ```

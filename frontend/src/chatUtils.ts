@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { AzureOpenAI } from 'openai';
 
 // ============================================================
@@ -346,41 +346,37 @@ async function sendToGemini(
   options: SendMessageOptions,
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
-  const genAI = new GoogleGenerativeAI(options.apiKey);
+  const ai = new GoogleGenAI({
+    apiKey: options.apiKey,
+    ...(options.endpointPreset === 'custom' && options.apiEndpoint
+      ? { httpOptions: { baseUrl: options.apiEndpoint } }
+      : {}),
+  });
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content;
   const nonSystemMessages = messages.filter(m => m.role !== 'system');
 
-  // All messages except the last one form the history; the last is the new user turn.
-  // BUG FIX: original code passed systemInstruction as the new message instead of
-  // the actual last user message, and passed the last message as history.
-  const historyMessages = nonSystemMessages.slice(0, -1);
-  const lastMessage = nonSystemMessages[nonSystemMessages.length - 1];
+  const contents = nonSystemMessages.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }],
+  }));
 
-  if (!lastMessage) {
-    throw new Error('[sendToGemini] No messages to send');
-  }
-
-  const model = genAI.getGenerativeModel({
-    model: options.model,
-    ...(systemInstruction ? { systemInstruction } : {}),
-  });
-
-  const chat = model.startChat({
-    history: historyMessages.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
-    })),
-  });
+  const config = systemInstruction ? { systemInstruction } : undefined;
 
   if (options.streaming && callbacks?.onContent) {
-    const streamResult = await chat.sendMessageStream(lastMessage.content);
+    const stream = await ai.models.generateContentStream({
+      model: options.model,
+      contents,
+      ...(config ? { config } : {}),
+    });
     let fullContent = '';
 
-    for await (const chunk of streamResult.stream) {
-      const text = chunk.text();
-      fullContent += text;
-      callbacks.onContent(text);
+    for await (const chunk of stream) {
+      const text = chunk.text;
+      if (text) {
+        fullContent += text;
+        callbacks.onContent(text);
+      }
     }
 
     const result: SendMessageResult = { content: fullContent, toolCalls: [] };
@@ -388,8 +384,12 @@ async function sendToGemini(
     return result;
   }
 
-  const response = await chat.sendMessage(lastMessage.content);
-  const result: SendMessageResult = { content: response.response.text(), toolCalls: [] };
+  const response = await ai.models.generateContent({
+    model: options.model,
+    contents,
+    ...(config ? { config } : {}),
+  });
+  const result: SendMessageResult = { content: response.text ?? '', toolCalls: [] };
   callbacks?.onComplete?.(result);
   return result;
 }

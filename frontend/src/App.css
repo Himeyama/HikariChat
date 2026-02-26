@@ -482,6 +482,6 @@
     color: #3a3a3a !important;
 }
 
-.rt-BaseTabListTriggerInner.rt-TabsTriggerInner {
+.chat-tabs-list .rt-BaseTabListTriggerInner.rt-TabsTriggerInner {
     width: 160px !important;
 }
