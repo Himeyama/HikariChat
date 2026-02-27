@@ -673,7 +673,7 @@ function App() {
         <Tabs.Root value={activeTabId} onValueChange={switchTab} className="chat-tabs-root">
           <Tabs.List className="chat-tabs-list">
             {Object.entries(tabs).map(([tabId, tab]) => (
-              <Tabs.Trigger value={tabId} key={tabId}>
+              <Tabs.Trigger value={tabId} key={tabId} onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); closeTab(tabId); } }}>
                 <Box className="chat-tab-trigger-content">
                   <Text mt="1" size="1" className="tab-name-text">{tab.name}</Text>
                     <Text size="1" className="tab-close-button" onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}>&#xE8BB;</Text>
