@@ -26,6 +26,20 @@ function Run() {
     dotnet run --project $csproj
 }
 
+function OccupyPort() {
+    $port = 29000
+    $listener = New-Object System.Net.HttpListener
+    $listener.Prefixes.Add("http://localhost:${port}/")
+    $listener.Start()
+    Write-Output "ポート $port を占有しました。Ctrl+C で解放します..."
+    try {
+        while ($true) { Start-Sleep -Seconds 1 }
+    } finally {
+        $listener.Stop()
+        Write-Output "ポート $port を解放しました。"
+    }
+}
+
 function Publish() {
     $null = dotnet publish $csproj -c Release -p:Version=$version
 }
@@ -94,4 +108,7 @@ elseif ($arg -eq "uninstall") {
 }
 elseif ($arg -eq "pack") {
     Pack
+}
+elseif ($arg -eq "occupy-port") {
+    OccupyPort
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Threading.Tasks;
 using HikariChat.Server;
 using Microsoft.UI.Xaml;
@@ -28,6 +29,11 @@ public partial class App : Application
         await _mcpManager.UpdateSettingsAsync(settings);
         LogInfo($"OnLaunched: MCP Manager updated. Status={_mcpManager.GetStatus()}");
 
+        // MainWindow を先に作成・表示
+        _mainWindow = new MainWindow();
+        _mainWindow.Activate();
+        LogInfo($"OnLaunched: MainWindow activated");
+
         // API サーバーを起動（McpManager を共有）
         _apiServer = new SimpleApiServer("http://localhost:29000/", _mcpManager)
         {
@@ -37,15 +43,27 @@ public partial class App : Application
                 return _mainWindow.GetChatHistoryAsync();
             }
         };
-        if(_mainWindow != null){
-            _apiServer.ExecuteScriptAsync = (script) => _mainWindow?.ExecuteScriptAsync(script);
-        }
-        _apiServer.Start();
-        LogInfo($"OnLaunched: API Server started");
+        _apiServer.ExecuteScriptAsync = (script) => _mainWindow?.ExecuteScriptAsync(script);
 
-        _mainWindow = new MainWindow();
-        _mainWindow.Activate();
-        LogInfo($"OnLaunched: MainWindow activated");
+        try
+        {
+            _apiServer.Start();
+            LogInfo($"OnLaunched: API Server started");
+        }
+        catch (HttpListenerException ex)
+        {
+            LogInfo($"OnLaunched: API Server failed to start: {ex.Message} (Code={ex.ErrorCode})");
+            await _mainWindow.ShowStartupError(
+                "APIサーバーを起動できませんでした",
+                $"ポート 29000 が使用できません。\n" +
+                $"Windows によってポートが予約されている可能性があります。\n\n" +
+                $"MCP 機能は利用できません。\n\n" +
+                $"【確認方法】 コマンドプロンプト（管理者）で:\n" +
+                $"netsh int ipv4 show excludedportrange protocol=tcp\n\n" +
+                $"エラーコード: {ex.ErrorCode}"
+            );
+            MainWindow?.Close();
+        }
     }
 
     public MainWindow? MainWindow => _mainWindow;

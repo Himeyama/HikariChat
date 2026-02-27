@@ -12,8 +12,8 @@ HikariChat は以下の方法でテスト自動化をサポートしています
 
 ## サーバー仕様
 
-- **デフォルトポート**: `30078`
-- **ベース URL**: `http://localhost:30078/`
+- **デフォルトポート**: `29000`
+- **ベース URL**: `http://localhost:29000/`
 
 ## API エンドポイント
 
@@ -127,7 +127,7 @@ $body = @{
     mcpEnabled = $false
 } | ConvertTo-Json -Depth 10
 
-$response = Invoke-RestMethod -Uri "http://localhost:30078/api/chat" -Method Post -Body $body -ContentType "application/json"
+$response = Invoke-RestMethod -Uri "http://localhost:29000/api/chat" -Method Post -Body $body -ContentType "application/json"
 $response.choices[0].message.content
 ```
 
@@ -138,14 +138,14 @@ $body = @{
     script = "document.title"
 } | ConvertTo-Json
 
-$response = Invoke-RestMethod -Uri "http://localhost:30078/api/test/execute-script" -Method Post -Body $body -ContentType "application/json"
+$response = Invoke-RestMethod -Uri "http://localhost:29000/api/test/execute-script" -Method Post -Body $body -ContentType "application/json"
 $response.result
 ```
 
 ### 例 3: チャット履歴の取得
 
 ```powershell
-$response = Invoke-RestMethod -Uri "http://localhost:30078/api/test/chat-history" -Method Get
+$response = Invoke-RestMethod -Uri "http://localhost:29000/api/test/chat-history" -Method Get
 $history = $response.history | ConvertFrom-Json
 $history."tab-chat-1".conversationHistory
 ```
@@ -158,7 +158,7 @@ $body = @{
     script = "document.querySelector('.chat-input-area textarea') !== null"
 } | ConvertTo-Json
 
-$response = Invoke-RestMethod -Uri "http://localhost:30078/api/test/execute-script" -Method Post -Body $body -ContentType "application/json"
+$response = Invoke-RestMethod -Uri "http://localhost:29000/api/test/execute-script" -Method Post -Body $body -ContentType "application/json"
 $exists = [bool]$response.result
 Write-Host "入力フィールド存在：$exists"
 ```
@@ -177,7 +177,7 @@ $body = @{
 "@
 } | ConvertTo-Json
 
-$response = Invoke-RestMethod -Uri "http://localhost:30078/api/test/execute-script" -Method Post -Body $body -ContentType "application/json"
+$response = Invoke-RestMethod -Uri "http://localhost:29000/api/test/execute-script" -Method Post -Body $body -ContentType "application/json"
 $messageCount = [int]$response.result
 Write-Host "メッセージ数：$messageCount"
 ```
@@ -187,7 +187,7 @@ Write-Host "メッセージ数：$messageCount"
 ```powershell
 # テスト自動化スクリプト例
 
-$serverUrl = "http://localhost:30078"
+$serverUrl = "http://localhost:29000"
 
 # 1. アプリ起動（別プロセス）
 Start-Process "dotnet" -ArgumentList "run", "--project", "HikariChat/HikariChat.csproj"
@@ -263,6 +263,39 @@ LLM がテスト結果を確認する際は、以下の形式で出力します�
 3. **チャット機能**: メッセージ送信・受信ができるか
 4. **ツール実行**: MCP ツールが実行できるか
 5. **エラー処理**: エラー時に適切に処理されるか
+
+## ポート占有スクリプト
+
+`dev.ps1 occupy-port` を使うと、ポート 29000 を意図的に占有した状態を作れます。
+起動エラーダイアログの動作確認などに使用します。
+
+### 使い方
+
+**ターミナル A**（ポートを占有したままにする）:
+```powershell
+./dev.ps1 occupy-port
+# → "ポート 29000 を占有しました。Ctrl+C で解放します..."
+```
+
+**ターミナル B**（この状態でアプリを起動する）:
+```powershell
+./dev.ps1 run
+```
+
+ポートが使用中のため API サーバーが起動できず、警告ダイアログが表示されます。
+確認後、ターミナル A で `Ctrl+C` を押してポートを解放してください。
+
+### 補足：Windows によるポート予約
+
+Windows（Hyper-V / WSL）は起動時に一定範囲のポートを動的予約することがあります。
+予約済み範囲は以下のコマンドで確認できます。
+
+```powershell
+netsh int ipv4 show excludedportrange protocol=tcp
+```
+
+アプリが使用するポート（29000）がこの範囲に含まれている場合、`occupy-port` を使わなくても
+起動時に同じ警告ダイアログが表示されます。
 
 ## 注意事項
 

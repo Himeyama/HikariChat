@@ -335,6 +335,47 @@ public sealed partial class MainWindow : Window
 
     SettingsWindow? settingsWindow;
 
+    public Task ShowStartupError(string title, string message)
+    {
+        if (DispatcherQueue.HasThreadAccess)
+            return ShowStartupErrorAsync(title, message);
+
+        TaskCompletionSource tcs = new();
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, async () =>
+        {
+            await ShowStartupErrorAsync(title, message);
+            tcs.SetResult();
+        });
+        return tcs.Task;
+    }
+
+    private async Task ShowStartupErrorAsync(string title, string message)
+    {
+        if (Content.XamlRoot == null && Content is FrameworkElement fe)
+        {
+            TaskCompletionSource<bool> tcs = new();
+            RoutedEventHandler? onLoaded = null;
+            onLoaded = (s, e) =>
+            {
+                fe.Loaded -= onLoaded;
+                tcs.TrySetResult(true);
+            };
+            fe.Loaded += onLoaded;
+            await tcs.Task;
+        }
+
+        if (Content.XamlRoot == null) return;
+
+        ContentDialog dialog = new()
+        {
+            Title = title,
+            Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+            CloseButtonText = "閉じる",
+            XamlRoot = Content.XamlRoot
+        };
+        await dialog.ShowAsync();
+    }
+
     void HandleWindowCommand(string cmd)
     {
         switch (cmd)
