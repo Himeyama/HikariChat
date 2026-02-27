@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { Box, Button, Tabs, TextArea, Text } from '@radix-ui/themes';
+import { Grid, Button, Tabs, TextArea, Text, Box } from '@radix-ui/themes';
 import './App.css';
 import { Marked } from 'marked';
 import hljs from 'highlight.js';
@@ -648,14 +648,14 @@ function App() {
   }, [tabs[activeTabId].conversationHistory, activeTabId]);
 
   return (
-    <Box className="window">
-      <Box className="title-bar" p="0">
+    <Grid className="window">
+      <Grid className="title-bar" p="0">
         <Button className="window-control-icon settings-icon" onClick={openSettingsWindow} title="設定">&#xF8B0;</Button>
-        <Box className="title-bar-center">
+        <Grid className="title-bar-center">
           <Text weight="bold" className="title-bar-text">ひかりチャット</Text>
-        </Box>
-        <Box className="title-bar-controls">
-          <Box className="title-bar-right">
+        </Grid>
+        <Grid className="title-bar-controls">
+          <Grid className="title-bar-right">
             <Text className="title-bar-info">{modelDisplayName}</Text>
             <Text className={`title-bar-info title-bar-mcp ${mcpStatusClass}`}>{mcpStatus}</Text>
             <Button className="window-control-icon" aria-label="Minimize" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "minimize" }} }')}>&#xEF2D;</Button>
@@ -664,20 +664,20 @@ function App() {
                 webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "toggleMaximize" }} }');
               }}>{isMaximized ? '\uEF2F' : '\uEF2E'}</Button>
             <Button className="window-control-icon close-button" aria-label="Close" onClick={() => webview.postMessage('{ "method": "tools/call", "params": {"name": "control", "arguments": {"command": "close" }} }')}>&#xEF2C;</Button>
-          </Box>
-        </Box>
-      </Box>
+          </Grid>
+        </Grid>
+      </Grid>
 
-      <Box className="window-body">
+      <Grid className="window-body">
 
         <Tabs.Root value={activeTabId} onValueChange={switchTab} className="chat-tabs-root">
           <Tabs.List className="chat-tabs-list">
             {Object.entries(tabs).map(([tabId, tab]) => (
               <Tabs.Trigger value={tabId} key={tabId} onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); closeTab(tabId); } }}>
-                <Box className="chat-tab-trigger-content">
+                <Grid className="chat-tab-trigger-content">
                   <Text mt="1" size="1" className="tab-name-text">{tab.name}</Text>
                     <Text size="1" className="tab-close-button" onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}>&#xE8BB;</Text>
-                </Box>
+                </Grid>
               </Tabs.Trigger>
             ))}
             <Button onClick={addTab} className="add-tab-button" title="新しいタブを追加">＋</Button>
@@ -739,8 +739,8 @@ function App() {
             </Tabs.Content>
           ))}
         </Tabs.Root>
-      </Box>
-    </Box>
+      </Grid>
+    </Grid>
   );
 }
 

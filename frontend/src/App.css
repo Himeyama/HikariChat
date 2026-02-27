@@ -10,7 +10,8 @@
 .title-bar {
     background: linear-gradient(45deg, #61a553, #232731);
     display: grid !important;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
     align-items: center;
     position: relative;
 }
@@ -23,12 +24,14 @@
     pointer-events: none;
     text-align: center;
     display: grid !important;
+    grid-row: 1 / 2;
 }
 
 .title-bar-text {
     font-weight: bold;
     color: white;
     font-family: "BIZ UDPGothic";
+    margin: auto 0;
 }
 
 .title-bar-info {
@@ -37,6 +40,7 @@
     padding: 0 var(--space-2);
     white-space: nowrap;
     align-self: center;
+    padding-left: 56px;
 }
 
 .title-bar-mcp.ready { color: #a8e6a0; }
@@ -110,6 +114,9 @@
 
 .window-control-icon.settings-icon {
     font-size: 14px !important;
+    grid-row: 1 / 2;
+    grid-column: 1 / 1;
+    z-index: 1;
 }
 
 .settings-title-bar {
@@ -329,11 +336,14 @@
     grid-auto-flow: column;
     align-items: center;
     gap: 0;
+    grid-row: 1 / 2;
+    grid-column: 1 / 1;
 }
 
 .title-bar-right {
     display: grid !important;
-    grid-template-columns: auto 1fr auto auto auto auto;
+    grid-template-rows: auto;
+    grid-template-columns: auto 1fr auto auto auto auto !important;
 }
 
 .title-bar-mcp {
@@ -350,7 +360,7 @@
     display: grid !important;
     gap: var(--space-1);
     width: 100%;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto !important;
 }
 
 .tab-name-text {
