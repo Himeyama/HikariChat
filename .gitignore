@@ -399,6 +399,7 @@ FodyWeavers.xsd
 
 .vs/
 .vscode/
+.claude/settings.local.json
 *.sln
 *.zip
 *.exe
