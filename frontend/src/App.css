@@ -66,7 +66,6 @@
 
 .chat-tabs-list {
     flex-shrink: 0;
-    margin-bottom: var(--space-3);
     border-bottom: 1px solid var(--gray-6);
     display: flex;
     align-items: center;
@@ -131,6 +130,7 @@
     overflow-y: scroll;
     padding: var(--space-3);
     min-height: 0;
+    height: calc(100vh - 215px);
 }
 
 .chat-messages:empty::before {

@@ -716,7 +716,6 @@ function App() {
               </Box>
               <Box
                 className="chat-input-area"
-                pt="4"
               >
                 <TextArea
                   placeholder="メッセージを入力..."
