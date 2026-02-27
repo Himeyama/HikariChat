@@ -511,7 +511,7 @@ export async function executeMcpTool(
 
   try {
     // Try HTTP API first (C# backend)
-    const response = await fetch('http://localhost:30078/api/mcp/execute', {
+    const response = await fetch('http://localhost:29000/api/mcp/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, arguments: args }),
@@ -602,7 +602,7 @@ export function buildMessagesForNextRequest(
  */
 export async function getAvailableTools(): Promise<McpToolInfo[]> {
   try {
-    const response = await fetch('http://localhost:30078/api/mcp/tools');
+    const response = await fetch('http://localhost:29000/api/mcp/tools');
     if (!response.ok) return [];
     const data = await response.json();
     console.log(data)

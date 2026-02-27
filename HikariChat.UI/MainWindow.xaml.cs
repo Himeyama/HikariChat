@@ -32,7 +32,7 @@ public sealed partial class MainWindow : Window
     public bool IsOllamaAvailable { get; private set; } = false;
 
     /// <summary>
-    /// Ollama のモチE��一覧
+    /// Ollama のモデル一覧
     /// </summary>
     public List<string> OllamaModels { get; private set; } = new();
 
@@ -238,7 +238,7 @@ public sealed partial class MainWindow : Window
             using HttpClient httpClient = new();
             string payload = JsonSerializer.Serialize(new { name = toolName, arguments });
             StringContent content = new(payload, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await httpClient.PostAsync("http://localhost:30078/api/mcp/execute", content);
+            HttpResponseMessage response = await httpClient.PostAsync("http://localhost:29000/api/mcp/execute", content);
 
             if (response.IsSuccessStatusCode)
             {

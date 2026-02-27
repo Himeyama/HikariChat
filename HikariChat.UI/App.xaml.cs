@@ -29,7 +29,7 @@ public partial class App : Application
         LogInfo($"OnLaunched: MCP Manager updated. Status={_mcpManager.GetStatus()}");
 
         // API サーバーを起動（McpManager を共有）
-        _apiServer = new SimpleApiServer("http://localhost:30078/", _mcpManager)
+        _apiServer = new SimpleApiServer("http://localhost:29000/", _mcpManager)
         {
             GetChatHistoryAsync = () =>
             {
