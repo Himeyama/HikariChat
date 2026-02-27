@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Button, Flex, Tabs, TextField, Select, Switch, TextArea, Text } from '@radix-ui/themes';
+import { Grid, Button, Flex, Tabs, TextField, Select, Switch, TextArea, Text } from '@radix-ui/themes';
 import './App.css'; // Reuse general styles like .window, .title-bar etc.
 
 const presetDisplayNames: Record<string, string> = {
@@ -329,19 +329,19 @@ function SettingsApp() {
     const currentModelList = getModelList(endpointPreset);
 
     return (
-        <Box className="window" style={{ height: '100vh' }}>
-            <Box p="0" className="title-bar settings-title-bar">
-                <Box className="title-bar-center">
+        <Grid className="window" style={{ height: '100vh' }}>
+            <Grid p="0" className="title-bar settings-title-bar">
+                <Grid className="title-bar-center">
                     <Text size="2" weight="bold" className="title-bar-text">設定</Text>
-                </Box>
+                </Grid>
                 <Button className="window-control-icon close-button" aria-label="Close" onClick={closeButtonHandler}>&#xEF2C;</Button>
-            </Box>
+            </Grid>
 
-            <Box className="window-body settings-body" p="3">
+            <Grid className="window-body settings-body" p="3">
                 {saveError && (
-                    <Box mb="3" p="2" style={{ background: 'var(--red-3)', borderRadius: 'var(--radius-2)', border: '1px solid var(--red-6)' }}>
+                    <Grid mb="3" p="2" style={{ background: 'var(--red-3)', borderRadius: 'var(--radius-2)', border: '1px solid var(--red-6)' }}>
                         <Text size="2" color="red">{saveError}</Text>
-                    </Box>
+                    </Grid>
                 )}
 
                 <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
@@ -351,9 +351,9 @@ function SettingsApp() {
                         <Tabs.Trigger value="tab-mcp">MCP 設定</Tabs.Trigger>
                     </Tabs.List>
 
-                    <Tabs.Content mt="4" value="tab-api" style={{ minHeight: 0, overflowY: 'auto' }}>
+                    <Tabs.Content mt="4" value="tab-api" style={{ minHeight: 0 }}>
                         {/* API 種別 */}
-                        <Box className="form-group" mb="3">
+                        <Grid className="form-group" mb="3">
                             <Text as="label" htmlFor="apiType" mb="2" weight="bold">API 種別</Text>
                             <Select.Root value={apiType} onValueChange={(value) => setApiType(value as ApiType)}>
                                 <Select.Trigger id="apiType" />
@@ -364,13 +364,13 @@ function SettingsApp() {
                                     <Select.Item value="gemini">Google Gemini API</Select.Item>
                                 </Select.Content>
                             </Select.Root>
-                            <Box mt="2">
+                            <Grid mt="2">
                                 <Text size="1" color="gray" className="api-type-info">{apiTypeDescriptions[apiType] || ""}</Text>
-                            </Box>
-                        </Box>
+                            </Grid>
+                        </Grid>
 
                         {/* エンドポイント */}
-                        <Box className="form-group" mt="4">
+                        <Grid className="form-group" mt="4">
                             <Text as="label" htmlFor="endpointPreset" mb="2" weight="bold">エンドポイント</Text>
                             <Flex gap="2" align="center" className="endpoint-group">
                                 <Select.Root value={endpointPreset} onValueChange={(value) => setEndpointPreset(value as EndpointPreset)}>
@@ -396,16 +396,16 @@ function SettingsApp() {
                                     style={{ flexGrow: 2 }}
                                 />
                             </Flex>
-                        </Box>
+                        </Grid>
 
                         {/* API キー */}
-                        <Box className="form-group" mt="4">
+                        <Grid className="form-group" mt="4">
                             <Text as="label" htmlFor="apiKey" mb="2" weight="bold">API キー</Text>
                             <TextField.Root type="password" id="apiKey" placeholder="sk-..." value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-                        </Box>
+                        </Grid>
 
                         {/* モデル */}
-                        <Box className="form-group" mt="4">
+                        <Grid className="form-group" mt="4">
                             <Text as="label" htmlFor="modelSelect" mb="2" weight="bold">モデル</Text>
                             {endpointPreset === "custom" ? (
                                 // カスタムプリセット: 常にテキスト入力
@@ -444,33 +444,33 @@ function SettingsApp() {
                             {effectiveModel && (
                                 <Text size="1" color="gray" mt="1">使用するモデル: {effectiveModel}</Text>
                             )}
-                        </Box>
+                        </Grid>
 
                         {/* Azure デプロイ名 */}
-                        <Box className="form-group" mt="4" style={{ display: endpointPreset === "azure_openai" ? 'block' : 'none' }}>
+                        <Grid className="form-group" mt="4" style={{ display: endpointPreset === "azure_openai" ? 'block' : 'none' }}>
                             <Text as="label" htmlFor="azureDeployment" mb="2" weight="bold">Azure OpenAI デプロイ名</Text>
                             <TextField.Root type="text" id="azureDeployment" placeholder="gpt-4o-mini" value={azureDeployment} onChange={(e) => setAzureDeployment(e.target.value)} />
-                        </Box>
+                        </Grid>
                     </Tabs.Content>
 
-                    <Tabs.Content value="tab-advanced" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', justifyContent: 'flex-start' }}>
-                        <Box mt="4" className="form-group">
+                    <Tabs.Content value="tab-advanced" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0, justifyContent: 'flex-start' }}>
+                        <Grid mt="4" className="form-group">
                             <Flex align="center" gap="2">
                                 <Switch id="streaming" checked={streaming} onCheckedChange={setStreaming} />
                                 <Text as="label" htmlFor="streaming">ストリーミング応答を有効にする</Text>
                             </Flex>
-                        </Box>
-                        <Box className="form-group" mt="4">
+                        </Grid>
+                        <Grid className="form-group" mt="4">
                             <Flex align="center" gap="2">
                                 <Switch id="mcpEnabled" checked={mcpEnabled} onCheckedChange={setMcpEnabled} />
                                 <Text as="label" htmlFor="mcpEnabled">MCP (Model Context Protocol) を有効にする</Text>
                             </Flex>
                             <Text size="1" color="gray" className="api-type-info">有効にすると、AI がローカルツールを実行できるようになります。</Text>
-                        </Box>
+                        </Grid>
                     </Tabs.Content>
 
-                    <Tabs.Content value="tab-mcp" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', justifyContent: 'flex-start' }}>
-                        <Box mt="4" className="form-group">
+                    <Tabs.Content value="tab-mcp" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0, justifyContent: 'flex-start' }}>
+                        <Grid mt="4" className="form-group">
                             <Text as="label" htmlFor="mcpServersJson" mb="1" weight="bold">MCP サーバー設定 (JSON)</Text>
                             <Text size="1" color="gray" mt="1" className="api-type-info">Claude デスクトップ互換の形式で、mcpServers プロパティのみ記述してください。</Text>
                             <TextArea
@@ -486,7 +486,7 @@ function SettingsApp() {
                                 value={mcpServersJson}
                                 onChange={(e) => setMcpServersJson(e.target.value)}
                             />
-                        </Box>
+                        </Grid>
                     </Tabs.Content>
                 </Tabs.Root>
 
@@ -494,8 +494,8 @@ function SettingsApp() {
                     <Button variant="outline" onClick={handleCancel}>キャンセル</Button>
                     <Button onClick={handleSave}>保存</Button>
                 </Flex>
-            </Box>
-        </Box>
+            </Grid>
+        </Grid>
     );
 }
 
