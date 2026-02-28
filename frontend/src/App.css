@@ -75,7 +75,8 @@
 }
 
 .chat-tabs-list .rt-TabsTrigger {
-    max-width: 176px;
+    flex: 0 1 174px;
+    max-width: 174px;
     min-width: 0;
     overflow: hidden;
 }
