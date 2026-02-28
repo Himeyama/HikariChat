@@ -566,14 +566,14 @@ function SettingsApp() {
                                 <Text as="label" mb="2" weight="bold" style={{ display: 'block' }}>各社の API キー</Text>
                                 <Grid gap="2" style={{ background: 'var(--gray-2)', padding: '12px', borderRadius: 'var(--radius-3)' }}>
                                     {[
-                                        { key: 'openai', label: 'OpenAI', value: openaiApiKey, setter: setOpenaiApiKey },
-                                        { key: 'anthropic', label: 'Anthropic', value: anthropicApiKey, setter: setAnthropicApiKey },
-                                        { key: 'gemini', label: 'Google Gemini', value: googleApiKey, setter: setGoogleApiKey },
-                                        { key: 'grok', label: 'Grok (xAI)', value: grokApiKey, setter: setGrokApiKey },
-                                        { key: 'deepseek', label: 'DeepSeek', value: deepseekApiKey, setter: setDeepseekApiKey },
-                                        { key: 'openrouter', label: 'OpenRouter', value: openrouterApiKey, setter: setOpenrouterApiKey },
-                                        { key: 'huggingface', label: 'Hugging Face', value: huggingfaceApiKey, setter: setHuggingfaceApiKey },
-                                        { key: 'custom', label: 'カスタム', value: customApiKey, setter: setCustomApiKey },
+                                        { key: 'openai', label: 'OpenAI', value: openaiApiKey, setter: setOpenaiApiKey, placeholder: 'sk-...' },
+                                        { key: 'anthropic', label: 'Anthropic', value: anthropicApiKey, setter: setAnthropicApiKey, placeholder: 'sk-ant-...' },
+                                        { key: 'gemini', label: 'Google Gemini', value: googleApiKey, setter: setGoogleApiKey, placeholder: 'AIza...' },
+                                        { key: 'grok', label: 'Grok (xAI)', value: grokApiKey, setter: setGrokApiKey, placeholder: 'xai-...' },
+                                        { key: 'deepseek', label: 'DeepSeek', value: deepseekApiKey, setter: setDeepseekApiKey, placeholder: 'sk-...' },
+                                        { key: 'openrouter', label: 'OpenRouter', value: openrouterApiKey, setter: setOpenrouterApiKey, placeholder: 'sk-or-...' },
+                                        { key: 'huggingface', label: 'Hugging Face', value: huggingfaceApiKey, setter: setHuggingfaceApiKey, placeholder: 'hf_...' },
+                                        { key: 'custom', label: 'カスタム', value: customApiKey, setter: setCustomApiKey, placeholder: 'API Key' },
                                     ].map((item) => (
                                         <Grid key={item.key} gap="1">
                                             <Flex gap="2" align="center">
@@ -584,7 +584,7 @@ function SettingsApp() {
                                                 )}
                                                 <Text size="1" weight="bold">{item.label}</Text>
                                             </Flex>
-                                            <TextField.Root type="password" placeholder="Key..." value={item.value} onChange={(e) => item.setter(e.target.value)} />
+                                            <TextField.Root type="password" placeholder={item.placeholder} value={item.value} onChange={(e) => item.setter(e.target.value)} />
                                         </Grid>
                                     ))}
                                 </Grid>
