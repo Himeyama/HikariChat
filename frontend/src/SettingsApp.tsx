@@ -1,13 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Grid, Button, Flex, Tabs, TextField, Select, Switch, TextArea, Text } from '@radix-ui/themes';
+import { Grid, Button, Flex, Tabs, TextField, Select, Switch, TextArea, Text, Box } from '@radix-ui/themes';
 import './App.css'; // Reuse general styles like .window, .title-bar etc.
 
 const presetDisplayNames: Record<string, string> = {
     openai: "OpenAI",
     azure_openai: "Azure OpenAI",
+    gemini: "Google Gemini",
+    grok: "Grok (xAI)",
+    anthropic: "Anthropic",
+    deepseek: "DeepSeek",
     openrouter: "OpenRouter",
     huggingface: "Hugging Face",
+    ollama: "Ollama",
     custom: "カスタム",
+};
+
+const providerIcons: Record<string, string> = {
+    openai: "https://www.google.com/s2/favicons?domain=openai.com&sz=32",
+    azure_openai: "https://www.google.com/s2/favicons?domain=azure.microsoft.com&sz=32",
+    gemini: "https://www.google.com/s2/favicons?domain=gemini.google.com&sz=32",
+    grok: "https://www.google.com/s2/favicons?domain=x.ai&sz=32",
+    anthropic: "https://www.google.com/s2/favicons?domain=anthropic.com&sz=32",
+    deepseek: "https://www.google.com/s2/favicons?domain=deepseek.com&sz=32",
+    openrouter: "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=32",
+    huggingface: "https://www.google.com/s2/favicons?domain=huggingface.co&sz=32",
+    ollama: "https://ollama.com/favicon.ico",
+    custom: "⚙️",
 };
 
 // Mock WebView2 communication for now
@@ -439,13 +457,13 @@ function SettingsApp() {
                     </Tabs.List>
 
                     <Tabs.Content mt="4" value="tab-api" style={{ minHeight: 0 }}>
-                        <Grid className="api-setting" gap="2">
-                            <Flex direction="column">
+                        <Flex gap="4">
+                            <Box style={{ flex: 1 }}>
                                 {/* API 種別 */}
                                 <Grid className="form-group" mb="3">
                                     <Text as="label" htmlFor="apiType" mb="2" weight="bold">API 種別</Text>
                                     <Select.Root value={apiType} onValueChange={(value) => setApiType(value as ApiType)}>
-                                        <Select.Trigger id="apiType" />
+                                        <Select.Trigger id="apiType" style={{ width: '100%' }} />
                                         <Select.Content>
                                             <Select.Item value="chat_completions">Chat Completions API (OpenAI 互換)</Select.Item>
                                             <Select.Item value="azure">Azure OpenAI</Select.Item>
@@ -461,9 +479,9 @@ function SettingsApp() {
                                 {/* エンドポイント */}
                                 <Grid className="form-group" mt="4">
                                     <Text as="label" htmlFor="endpointPreset" mb="2" weight="bold">エンドポイント</Text>
-                                    <Flex gap="2" align="center" className="endpoint-group">
+                                    <Flex gap="2" direction="column">
                                         <Select.Root value={endpointPreset} onValueChange={(value) => setEndpointPreset(value as EndpointPreset)}>
-                                            <Select.Trigger id="endpointPreset" style={{ flexGrow: 1 }} />
+                                            <Select.Trigger id="endpointPreset" style={{ width: '100%' }} />
                                             <Select.Content>
                                                 {Object.entries(endpoints).map(([key]) => {
                                                     const compatible = compatibleEndpoints[apiType] || [];
@@ -471,7 +489,14 @@ function SettingsApp() {
                                                     if (key === "ollama" && !ollamaAvailable) return null;
                                                     return (
                                                         <Select.Item key={key} value={key} disabled={disabled}>
-                                                            {presetDisplayNames[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '))}
+                                                            <Flex gap="2" align="center">
+                                                                {providerIcons[key].startsWith('http') ? (
+                                                                    <img src={providerIcons[key]} alt="" style={{ width: 16, height: 16 }} />
+                                                                ) : (
+                                                                    <Text size="1">{providerIcons[key]}</Text>
+                                                                )}
+                                                                {presetDisplayNames[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '))}
+                                                            </Flex>
                                                         </Select.Item>
                                                     );
                                                 })}
@@ -482,7 +507,6 @@ function SettingsApp() {
                                             value={apiEndpoint}
                                             onChange={(e) => setApiEndpoint(e.target.value)}
                                             disabled={endpointPreset !== "custom"}
-                                            style={{ flexGrow: 2 }}
                                         />
                                     </Flex>
                                 </Grid>
@@ -535,47 +559,37 @@ function SettingsApp() {
                                     <Text as="label" htmlFor="azureDeployment" mb="2" weight="bold">Azure OpenAI デプロイ名</Text>
                                     <TextField.Root type="text" id="azureDeployment" placeholder="gpt-4o-mini" value={azureDeployment} onChange={(e) => setAzureDeployment(e.target.value)} />
                                 </Grid>
-                            </Flex>
+                            </Box>
 
                             {/* API キー */}
-                            <Grid className="form-group api-key-setting" mt="4">
-                                <Text as="label" mb="2" weight="bold">API キー</Text>
-                                <Grid gap="3" style={{ background: 'var(--gray-2)', padding: '12px', borderRadius: 'var(--radius-3)' }}>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">OpenAI</Text>
-                                        <TextField.Root type="password" placeholder="sk-..." value={openaiApiKey} onChange={(e) => setOpenaiApiKey(e.target.value)} />
-                                    </Grid>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">Anthropic</Text>
-                                        <TextField.Root type="password" placeholder="sk-ant-..." value={anthropicApiKey} onChange={(e) => setAnthropicApiKey(e.target.value)} />
-                                    </Grid>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">Google Gemini</Text>
-                                        <TextField.Root type="password" placeholder="AIza..." value={googleApiKey} onChange={(e) => setGoogleApiKey(e.target.value)} />
-                                    </Grid>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">Grok (xAI)</Text>
-                                        <TextField.Root type="password" placeholder="xai-..." value={grokApiKey} onChange={(e) => setGrokApiKey(e.target.value)} />
-                                    </Grid>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">DeepSeek</Text>
-                                        <TextField.Root type="password" placeholder="sk-..." value={deepseekApiKey} onChange={(e) => setDeepseekApiKey(e.target.value)} />
-                                    </Grid>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">OpenRouter</Text>
-                                        <TextField.Root type="password" placeholder="sk-or-..." value={openrouterApiKey} onChange={(e) => setOpenrouterApiKey(e.target.value)} />
-                                    </Grid>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">Hugging Face</Text>
-                                        <TextField.Root type="password" placeholder="hf_..." value={huggingfaceApiKey} onChange={(e) => setHuggingfaceApiKey(e.target.value)} />
-                                    </Grid>
-                                    <Grid gap="1">
-                                        <Text size="1" weight="bold">カスタム / その他</Text>
-                                        <TextField.Root type="password" placeholder="API Key" value={customApiKey} onChange={(e) => setCustomApiKey(e.target.value)} />
-                                    </Grid>
+                            <Box style={{ flex: 1 }}>
+                                <Text as="label" mb="2" weight="bold" style={{ display: 'block' }}>各社の API キー</Text>
+                                <Grid gap="2" style={{ background: 'var(--gray-2)', padding: '12px', borderRadius: 'var(--radius-3)' }}>
+                                    {[
+                                        { key: 'openai', label: 'OpenAI', value: openaiApiKey, setter: setOpenaiApiKey },
+                                        { key: 'anthropic', label: 'Anthropic', value: anthropicApiKey, setter: setAnthropicApiKey },
+                                        { key: 'gemini', label: 'Google Gemini', value: googleApiKey, setter: setGoogleApiKey },
+                                        { key: 'grok', label: 'Grok (xAI)', value: grokApiKey, setter: setGrokApiKey },
+                                        { key: 'deepseek', label: 'DeepSeek', value: deepseekApiKey, setter: setDeepseekApiKey },
+                                        { key: 'openrouter', label: 'OpenRouter', value: openrouterApiKey, setter: setOpenrouterApiKey },
+                                        { key: 'huggingface', label: 'Hugging Face', value: huggingfaceApiKey, setter: setHuggingfaceApiKey },
+                                        { key: 'custom', label: 'カスタム', value: customApiKey, setter: setCustomApiKey },
+                                    ].map((item) => (
+                                        <Grid key={item.key} gap="1">
+                                            <Flex gap="2" align="center">
+                                                {providerIcons[item.key].startsWith('http') ? (
+                                                    <img src={providerIcons[item.key]} alt="" style={{ width: 12, height: 12 }} />
+                                                ) : (
+                                                    <Text size="1">{providerIcons[item.key]}</Text>
+                                                )}
+                                                <Text size="1" weight="bold">{item.label}</Text>
+                                            </Flex>
+                                            <TextField.Root type="password" placeholder="Key..." value={item.value} onChange={(e) => item.setter(e.target.value)} />
+                                        </Grid>
+                                    ))}
                                 </Grid>
-                            </Grid>
-                        </Grid>
+                            </Box>
+                        </Flex>
                     </Tabs.Content>
 
                     <Tabs.Content value="tab-advanced" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0, justifyContent: 'flex-start' }}>
