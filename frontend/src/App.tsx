@@ -840,20 +840,19 @@ function App() {
                   </Grid>
                 )}
                 <Grid className="chat-input-area">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    ref={fileInputRef}
-                    style={{ display: 'none' }}
-                    onChange={handleImageUpload}
-                  />
                   <Grid className='image-button-area'>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      ref={fileInputRef}
+                      style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+                      onChange={handleImageUpload}
+                    />
                     <Button
                       variant="ghost"
                       size="3"
                       className="attach-button"
-                      onClick={() => fileInputRef.current?.click()}
                       title="画像を添付"
                     >
                       &#xEB9F;
