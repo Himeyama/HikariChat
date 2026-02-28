@@ -63,13 +63,76 @@ public class ApiSettings : ObservableObject
         set => SetProperty(ref _apiEndpoint, value);
     }
 
-    private string _apiKey = "";
+    private string _openaiApiKey = "";
 
-    [JsonPropertyName("apiKey")]
-    public string ApiKey
+    [JsonPropertyName("openaiApiKey")]
+    public string OpenaiApiKey
     {
-        get => _apiKey;
-        set => SetProperty(ref _apiKey, value);
+        get => _openaiApiKey;
+        set => SetProperty(ref _openaiApiKey, value);
+    }
+
+    private string _anthropicApiKey = "";
+
+    [JsonPropertyName("anthropicApiKey")]
+    public string AnthropicApiKey
+    {
+        get => _anthropicApiKey;
+        set => SetProperty(ref _anthropicApiKey, value);
+    }
+
+    private string _googleApiKey = "";
+
+    [JsonPropertyName("googleApiKey")]
+    public string GoogleApiKey
+    {
+        get => _googleApiKey;
+        set => SetProperty(ref _googleApiKey, value);
+    }
+
+    private string _grokApiKey = "";
+
+    [JsonPropertyName("grokApiKey")]
+    public string GrokApiKey
+    {
+        get => _grokApiKey;
+        set => SetProperty(ref _grokApiKey, value);
+    }
+
+    private string _deepseekApiKey = "";
+
+    [JsonPropertyName("deepseekApiKey")]
+    public string DeepseekApiKey
+    {
+        get => _deepseekApiKey;
+        set => SetProperty(ref _deepseekApiKey, value);
+    }
+
+    private string _openrouterApiKey = "";
+
+    [JsonPropertyName("openrouterApiKey")]
+    public string OpenrouterApiKey
+    {
+        get => _openrouterApiKey;
+        set => SetProperty(ref _openrouterApiKey, value);
+    }
+
+    private string _huggingfaceApiKey = "";
+
+    [JsonPropertyName("huggingfaceApiKey")]
+    public string HuggingfaceApiKey
+    {
+        get => _huggingfaceApiKey;
+        set => SetProperty(ref _huggingfaceApiKey, value);
+    }
+
+    private string _customApiKey = "";
+
+    [JsonPropertyName("customApiKey")]
+    public string CustomApiKey
+    {
+        get => _customApiKey;
+        set => SetProperty(ref _customApiKey, value);
     }
 
     private string _model = "";

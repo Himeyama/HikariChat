@@ -498,3 +498,11 @@
 .add-tab-button {
     flex-shrink: 0;
 }
+
+.api-setting {
+    grid-template-columns: 1fr 1fr !important;
+}
+
+.api-key-setting {
+    grid-column: 2 / 3;
+}

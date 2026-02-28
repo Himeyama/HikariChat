@@ -40,7 +40,14 @@ export interface McpToolInfo {
 }
 
 export interface SendMessageOptions {
-  apiKey: string;
+  openaiApiKey: string;
+  anthropicApiKey: string;
+  googleApiKey: string;
+  grokApiKey: string;
+  deepseekApiKey: string;
+  openrouterApiKey: string;
+  huggingfaceApiKey: string;
+  customApiKey: string;
   apiEndpoint: string;
   model: string;
   apiType: 'azure' | 'gemini' | 'claude' | 'chat_completions';
@@ -226,14 +233,38 @@ function toolCallMapToArray(
 // Provider implementations
 // ============================================================
 
+function selectApiKey(options: SendMessageOptions): string {
+  switch (options.endpointPreset) {
+    case 'openai':
+    case 'azure_openai':
+      return options.openaiApiKey;
+    case 'anthropic':
+      return options.anthropicApiKey;
+    case 'gemini':
+      return options.googleApiKey;
+    case 'grok':
+      return options.grokApiKey;
+    case 'deepseek':
+      return options.deepseekApiKey;
+    case 'openrouter':
+      return options.openrouterApiKey;
+    case 'huggingface':
+      return options.huggingfaceApiKey;
+    case 'custom':
+    default:
+      return options.customApiKey;
+  }
+}
+
 async function sendToOpenAI(
   messages: ChatMessage[],
   options: SendMessageOptions,
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
   const isOpenRouter = options.endpointPreset === 'openrouter';
+  const apiKey = selectApiKey(options);
   const openai = new OpenAI({
-    apiKey: options.apiKey,
+    apiKey: apiKey,
     baseURL: options.apiEndpoint.replace('/chat/completions', ''),
     dangerouslyAllowBrowser: true,
     ...(isOpenRouter ? {
@@ -299,9 +330,10 @@ async function sendToAzureOpenAI(
     endpoint = options.apiEndpoint;
 
   const apiVersion = url.searchParams.get('api-version') ?? '2024-02-15-preview';
+  const apiKey = selectApiKey(options);
 
   const openai = new AzureOpenAI({
-    apiKey: options.apiKey,
+    apiKey: apiKey,
     endpoint,
     apiVersion,
     deployment: options.azureDeployment,
@@ -353,8 +385,9 @@ async function sendToGemini(
   options: SendMessageOptions,
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
+  const apiKey = selectApiKey(options);
   const ai = new GoogleGenAI({
-    apiKey: options.apiKey,
+    apiKey: apiKey,
     ...(options.endpointPreset === 'custom' && options.apiEndpoint
       ? { httpOptions: { baseUrl: options.apiEndpoint } }
       : {}),
@@ -406,7 +439,8 @@ async function sendToAnthropic(
   options: SendMessageOptions,
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
-  const anthropic = new Anthropic({ apiKey: options.apiKey, dangerouslyAllowBrowser: true });
+  const apiKey = selectApiKey(options);
+  const anthropic = new Anthropic({ apiKey: apiKey, dangerouslyAllowBrowser: true });
 
   const systemMessage = messages.find(m => m.role === 'system')?.content;
   const anthropicMessages = toAnthropicMessages(messages);

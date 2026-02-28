@@ -48,7 +48,14 @@ interface Settings {
   apiType: 'azure' | 'gemini' | 'claude' | 'chat_completions';
   endpointPreset: string;
   apiEndpoint: string;
-  apiKey: string;
+  openaiApiKey: string;
+  anthropicApiKey: string;
+  googleApiKey: string;
+  grokApiKey: string;
+  deepseekApiKey: string;
+  openrouterApiKey: string;
+  huggingfaceApiKey: string;
+  customApiKey: string;
   model: string;
   azureDeployment: string;
   streaming: boolean;
@@ -60,7 +67,14 @@ const defaultSettings: Settings = {
   apiType: "chat_completions",
   endpointPreset: "openai",
   apiEndpoint: "https://api.openai.com/v1/chat/completions",
-  apiKey: "",
+  openaiApiKey: "",
+  anthropicApiKey: "",
+  googleApiKey: "",
+  grokApiKey: "",
+  deepseekApiKey: "",
+  openrouterApiKey: "",
+  huggingfaceApiKey: "",
+  customApiKey: "",
   model: "gpt-4o-mini",
   azureDeployment: "",
   streaming: true,
@@ -147,7 +161,11 @@ function App() {
 
   useEffect(() => {
     updateSendButtonState();
-  }, [chatInput, activeTab?.isLoading, currentSettings.apiKey, currentSettings.endpointPreset]);
+  }, [chatInput, activeTab?.isLoading, 
+      currentSettings.openaiApiKey, currentSettings.anthropicApiKey, currentSettings.googleApiKey,
+      currentSettings.grokApiKey, currentSettings.deepseekApiKey, currentSettings.openrouterApiKey,
+      currentSettings.huggingfaceApiKey, currentSettings.customApiKey,
+      currentSettings.endpointPreset]);
 
   const updateModelDisplay = () => {
     const model = currentSettings.model || 'モデル未設定';
@@ -258,7 +276,14 @@ function App() {
 
     return new Promise((resolve, reject) => {
       sendChatMessage(messages, {
-        apiKey: currentSettings.apiKey,
+        openaiApiKey: currentSettings.openaiApiKey,
+        anthropicApiKey: currentSettings.anthropicApiKey,
+        googleApiKey: currentSettings.googleApiKey,
+        grokApiKey: currentSettings.grokApiKey,
+        deepseekApiKey: currentSettings.deepseekApiKey,
+        openrouterApiKey: currentSettings.openrouterApiKey,
+        huggingfaceApiKey: currentSettings.huggingfaceApiKey,
+        customApiKey: currentSettings.customApiKey,
         apiEndpoint: currentSettings.apiEndpoint,
         model: currentSettings.model,
         apiType: currentSettings.apiType,
@@ -312,7 +337,14 @@ function App() {
 
     return new Promise((resolve, reject) => {
       sendChatMessage(messages, {
-        apiKey: currentSettings.apiKey,
+        openaiApiKey: currentSettings.openaiApiKey,
+        anthropicApiKey: currentSettings.anthropicApiKey,
+        googleApiKey: currentSettings.googleApiKey,
+        grokApiKey: currentSettings.grokApiKey,
+        deepseekApiKey: currentSettings.deepseekApiKey,
+        openrouterApiKey: currentSettings.openrouterApiKey,
+        huggingfaceApiKey: currentSettings.huggingfaceApiKey,
+        customApiKey: currentSettings.customApiKey,
         apiEndpoint: currentSettings.apiEndpoint,
         model: currentSettings.model,
         apiType: currentSettings.apiType,
@@ -513,10 +545,33 @@ function App() {
     await processChatRecursiveWithTools(nextMessages, executedToolCallIds, iterationCount + 1, maxIterations, tools);
   };
 
+  const getSelectedApiKey = () => {
+    switch (currentSettings.endpointPreset) {
+      case 'openai':
+      case 'azure_openai':
+        return currentSettings.openaiApiKey;
+      case 'anthropic':
+        return currentSettings.anthropicApiKey;
+      case 'gemini':
+        return currentSettings.googleApiKey;
+      case 'grok':
+        return currentSettings.grokApiKey;
+      case 'deepseek':
+        return currentSettings.deepseekApiKey;
+      case 'openrouter':
+        return currentSettings.openrouterApiKey;
+      case 'huggingface':
+        return currentSettings.huggingfaceApiKey;
+      case 'custom':
+      default:
+        return currentSettings.customApiKey;
+    }
+  };
+
   const sendMessage = async () => {
     if (!chatInput.trim() || activeTab.isLoading) return;
 
-    if (!currentSettings.apiKey && currentSettings.endpointPreset !== "ollama") {
+    if (currentSettings.endpointPreset !== "ollama" && !getSelectedApiKey()) {
       addMessage("API キーが設定されていません。設定から入力してください。", "error");
       openSettingsWindow();
       return;

@@ -22,7 +22,14 @@ interface Settings {
     apiType: string;
     endpointPreset: string;
     apiEndpoint: string;
-    apiKey: string;
+    openaiApiKey: string;
+    anthropicApiKey: string;
+    googleApiKey: string;
+    grokApiKey: string;
+    deepseekApiKey: string;
+    openrouterApiKey: string;
+    huggingfaceApiKey: string;
+    customApiKey: string;
     model: string;
     azureDeployment: string;
     streaming: boolean;
@@ -34,7 +41,14 @@ const defaultSettings: Settings = {
     apiType: "chat_completions",
     endpointPreset: "openai",
     apiEndpoint: "https://api.openai.com/v1/chat/completions",
-    apiKey: "",
+    openaiApiKey: "",
+    anthropicApiKey: "",
+    googleApiKey: "",
+    grokApiKey: "",
+    deepseekApiKey: "",
+    openrouterApiKey: "",
+    huggingfaceApiKey: "",
+    customApiKey: "",
     model: "gpt-4o-mini",
     azureDeployment: "",
     streaming: true,
@@ -222,7 +236,14 @@ function SettingsApp() {
     const [apiType, setApiType] = useState<ApiType>(initialSettings.apiType as ApiType);
     const [endpointPreset, setEndpointPreset] = useState<EndpointPreset>(initialSettings.endpointPreset as EndpointPreset);
     const [apiEndpoint, setApiEndpoint] = useState(initialSettings.apiEndpoint);
-    const [apiKey, setApiKey] = useState(initialSettings.apiKey);
+    const [openaiApiKey, setOpenaiApiKey] = useState(initialSettings.openaiApiKey || "");
+    const [anthropicApiKey, setAnthropicApiKey] = useState(initialSettings.anthropicApiKey || "");
+    const [googleApiKey, setGoogleApiKey] = useState(initialSettings.googleApiKey || "");
+    const [grokApiKey, setGrokApiKey] = useState(initialSettings.grokApiKey || "");
+    const [deepseekApiKey, setDeepseekApiKey] = useState(initialSettings.deepseekApiKey || "");
+    const [openrouterApiKey, setOpenrouterApiKey] = useState(initialSettings.openrouterApiKey || "");
+    const [huggingfaceApiKey, setHuggingfaceApiKey] = useState(initialSettings.huggingfaceApiKey || "");
+    const [customApiKey, setCustomApiKey] = useState(initialSettings.customApiKey || "");
     const [model, setModel] = useState(initialSettings.model);
     // カスタムモデル入力用: プリセットがcustomのとき、またはモデルがリストにないときに使う
     const [customModelInput, setCustomModelInput] = useState(() => {
@@ -356,7 +377,14 @@ function SettingsApp() {
             apiType,
             endpointPreset,
             apiEndpoint,
-            apiKey,
+            openaiApiKey,
+            anthropicApiKey,
+            googleApiKey,
+            grokApiKey,
+            deepseekApiKey,
+            openrouterApiKey,
+            huggingfaceApiKey,
+            customApiKey,
             model: effectiveModel.trim(),
             azureDeployment,
             streaming,
@@ -411,104 +439,142 @@ function SettingsApp() {
                     </Tabs.List>
 
                     <Tabs.Content mt="4" value="tab-api" style={{ minHeight: 0 }}>
-                        {/* API 種別 */}
-                        <Grid className="form-group" mb="3">
-                            <Text as="label" htmlFor="apiType" mb="2" weight="bold">API 種別</Text>
-                            <Select.Root value={apiType} onValueChange={(value) => setApiType(value as ApiType)}>
-                                <Select.Trigger id="apiType" />
-                                <Select.Content>
-                                    <Select.Item value="chat_completions">Chat Completions API (OpenAI 互換)</Select.Item>
-                                    <Select.Item value="azure">Azure OpenAI</Select.Item>
-                                    <Select.Item value="claude">Anthropic Claude API</Select.Item>
-                                    <Select.Item value="gemini">Google Gemini API</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-                            <Grid mt="2">
-                                <Text size="1" color="gray" className="api-type-info">{apiTypeDescriptions[apiType] || ""}</Text>
-                            </Grid>
-                        </Grid>
-
-                        {/* エンドポイント */}
-                        <Grid className="form-group" mt="4">
-                            <Text as="label" htmlFor="endpointPreset" mb="2" weight="bold">エンドポイント</Text>
-                            <Flex gap="2" align="center" className="endpoint-group">
-                                <Select.Root value={endpointPreset} onValueChange={(value) => setEndpointPreset(value as EndpointPreset)}>
-                                    <Select.Trigger id="endpointPreset" style={{ flexGrow: 1 }} />
-                                    <Select.Content>
-                                        {Object.entries(endpoints).map(([key]) => {
-                                            const compatible = compatibleEndpoints[apiType] || [];
-                                            const disabled = !compatible.includes(key);
-                                            if (key === "ollama" && !ollamaAvailable) return null;
-                                            return (
-                                                <Select.Item key={key} value={key} disabled={disabled}>
-                                                    {presetDisplayNames[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '))}
-                                                </Select.Item>
-                                            );
-                                        })}
-                                    </Select.Content>
-                                </Select.Root>
-                                <TextField.Root
-                                    placeholder="https://api.openai.com/v1/chat/completions"
-                                    value={apiEndpoint}
-                                    onChange={(e) => setApiEndpoint(e.target.value)}
-                                    disabled={endpointPreset !== "custom"}
-                                    style={{ flexGrow: 2 }}
-                                />
-                            </Flex>
-                        </Grid>
-
-                        {/* API キー */}
-                        <Grid className="form-group" mt="4">
-                            <Text as="label" htmlFor="apiKey" mb="2" weight="bold">API キー</Text>
-                            <TextField.Root type="password" id="apiKey" placeholder="sk-..." value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-                        </Grid>
-
-                        {/* モデル */}
-                        <Grid className="form-group" mt="4">
-                            <Text as="label" htmlFor="modelSelect" mb="2" weight="bold">モデル</Text>
-                            {endpointPreset === "custom" ? (
-                                // カスタムプリセット: 常にテキスト入力
-                                <TextField.Root
-                                    id="modelSelect"
-                                    placeholder="例: gpt-4o-mini, llama3, claude-3-5-sonnet..."
-                                    value={customModelInput}
-                                    onChange={(e) => setCustomModelInput(e.target.value)}
-                                />
-                            ) : (
-                                // 既知プリセット: セレクト＋「カスタム入力」オプション
-                                <Flex gap="2" direction="column">
-                                    <Select.Root
-                                        value={isCustomModel ? CUSTOM_MODEL_VALUE : model}
-                                        onValueChange={handleModelSelectChange}
-                                    >
-                                        <Select.Trigger id="modelSelect" />
+                        <Grid className="api-setting" gap="2">
+                            <Flex direction="column">
+                                {/* API 種別 */}
+                                <Grid className="form-group" mb="3">
+                                    <Text as="label" htmlFor="apiType" mb="2" weight="bold">API 種別</Text>
+                                    <Select.Root value={apiType} onValueChange={(value) => setApiType(value as ApiType)}>
+                                        <Select.Trigger id="apiType" />
                                         <Select.Content>
-                                            {currentModelList.map(m => (
-                                                <Select.Item key={m} value={m}>{m}</Select.Item>
-                                            ))}
-                                            <Select.Separator />
-                                            <Select.Item value={CUSTOM_MODEL_VALUE}>カスタム（手入力）</Select.Item>
+                                            <Select.Item value="chat_completions">Chat Completions API (OpenAI 互換)</Select.Item>
+                                            <Select.Item value="azure">Azure OpenAI</Select.Item>
+                                            <Select.Item value="claude">Anthropic Claude API</Select.Item>
+                                            <Select.Item value="gemini">Google Gemini API</Select.Item>
                                         </Select.Content>
                                     </Select.Root>
-                                    {isCustomModel && (
+                                    <Grid mt="2">
+                                        <Text size="1" color="gray" className="api-type-info">{apiTypeDescriptions[apiType] || ""}</Text>
+                                    </Grid>
+                                </Grid>
+
+                                {/* エンドポイント */}
+                                <Grid className="form-group" mt="4">
+                                    <Text as="label" htmlFor="endpointPreset" mb="2" weight="bold">エンドポイント</Text>
+                                    <Flex gap="2" align="center" className="endpoint-group">
+                                        <Select.Root value={endpointPreset} onValueChange={(value) => setEndpointPreset(value as EndpointPreset)}>
+                                            <Select.Trigger id="endpointPreset" style={{ flexGrow: 1 }} />
+                                            <Select.Content>
+                                                {Object.entries(endpoints).map(([key]) => {
+                                                    const compatible = compatibleEndpoints[apiType] || [];
+                                                    const disabled = !compatible.includes(key);
+                                                    if (key === "ollama" && !ollamaAvailable) return null;
+                                                    return (
+                                                        <Select.Item key={key} value={key} disabled={disabled}>
+                                                            {presetDisplayNames[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '))}
+                                                        </Select.Item>
+                                                    );
+                                                })}
+                                            </Select.Content>
+                                        </Select.Root>
                                         <TextField.Root
-                                            placeholder="モデル名を入力..."
+                                            placeholder="https://api.openai.com/v1/chat/completions"
+                                            value={apiEndpoint}
+                                            onChange={(e) => setApiEndpoint(e.target.value)}
+                                            disabled={endpointPreset !== "custom"}
+                                            style={{ flexGrow: 2 }}
+                                        />
+                                    </Flex>
+                                </Grid>
+
+
+                                {/* モデル */}
+                                <Grid className="form-group" mt="4">
+                                    <Text as="label" htmlFor="modelSelect" mb="2" weight="bold">モデル</Text>
+                                    {endpointPreset === "custom" ? (
+                                        // カスタムプリセット: 常にテキスト入力
+                                        <TextField.Root
+                                            id="modelSelect"
+                                            placeholder="例: gpt-4o-mini, llama3, claude-3-5-sonnet..."
                                             value={customModelInput}
                                             onChange={(e) => setCustomModelInput(e.target.value)}
-                                            autoFocus
                                         />
+                                    ) : (
+                                        // 既知プリセット: セレクト＋「カスタム入力」オプション
+                                        <Flex gap="2" direction="column">
+                                            <Select.Root
+                                                value={isCustomModel ? CUSTOM_MODEL_VALUE : model}
+                                                onValueChange={handleModelSelectChange}
+                                            >
+                                                <Select.Trigger id="modelSelect" />
+                                                <Select.Content>
+                                                    {currentModelList.map(m => (
+                                                        <Select.Item key={m} value={m}>{m}</Select.Item>
+                                                    ))}
+                                                    <Select.Separator />
+                                                    <Select.Item value={CUSTOM_MODEL_VALUE}>カスタム（手入力）</Select.Item>
+                                                </Select.Content>
+                                            </Select.Root>
+                                            {isCustomModel && (
+                                                <TextField.Root
+                                                    placeholder="モデル名を入力..."
+                                                    value={customModelInput}
+                                                    onChange={(e) => setCustomModelInput(e.target.value)}
+                                                    autoFocus
+                                                />
+                                            )}
+                                        </Flex>
                                     )}
-                                </Flex>
-                            )}
-                            {effectiveModel && (
-                                <Text size="1" color="gray" mt="1">使用するモデル: {effectiveModel}</Text>
-                            )}
-                        </Grid>
+                                    {effectiveModel && (
+                                        <Text size="1" color="gray" mt="1">使用するモデル: {effectiveModel}</Text>
+                                    )}
+                                </Grid>
 
-                        {/* Azure デプロイ名 */}
-                        <Grid className="form-group" mt="4" style={{ display: endpointPreset === "azure_openai" ? 'block' : 'none' }}>
-                            <Text as="label" htmlFor="azureDeployment" mb="2" weight="bold">Azure OpenAI デプロイ名</Text>
-                            <TextField.Root type="text" id="azureDeployment" placeholder="gpt-4o-mini" value={azureDeployment} onChange={(e) => setAzureDeployment(e.target.value)} />
+                                {/* Azure デプロイ名 */}
+                                <Grid className="form-group" mt="4" style={{ display: endpointPreset === "azure_openai" ? 'block' : 'none' }}>
+                                    <Text as="label" htmlFor="azureDeployment" mb="2" weight="bold">Azure OpenAI デプロイ名</Text>
+                                    <TextField.Root type="text" id="azureDeployment" placeholder="gpt-4o-mini" value={azureDeployment} onChange={(e) => setAzureDeployment(e.target.value)} />
+                                </Grid>
+                            </Flex>
+
+                            {/* API キー */}
+                            <Grid className="form-group api-key-setting" mt="4">
+                                <Text as="label" mb="2" weight="bold">API キー</Text>
+                                <Grid gap="3" style={{ background: 'var(--gray-2)', padding: '12px', borderRadius: 'var(--radius-3)' }}>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">OpenAI</Text>
+                                        <TextField.Root type="password" placeholder="sk-..." value={openaiApiKey} onChange={(e) => setOpenaiApiKey(e.target.value)} />
+                                    </Grid>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">Anthropic</Text>
+                                        <TextField.Root type="password" placeholder="sk-ant-..." value={anthropicApiKey} onChange={(e) => setAnthropicApiKey(e.target.value)} />
+                                    </Grid>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">Google Gemini</Text>
+                                        <TextField.Root type="password" placeholder="AIza..." value={googleApiKey} onChange={(e) => setGoogleApiKey(e.target.value)} />
+                                    </Grid>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">Grok (xAI)</Text>
+                                        <TextField.Root type="password" placeholder="xai-..." value={grokApiKey} onChange={(e) => setGrokApiKey(e.target.value)} />
+                                    </Grid>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">DeepSeek</Text>
+                                        <TextField.Root type="password" placeholder="sk-..." value={deepseekApiKey} onChange={(e) => setDeepseekApiKey(e.target.value)} />
+                                    </Grid>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">OpenRouter</Text>
+                                        <TextField.Root type="password" placeholder="sk-or-..." value={openrouterApiKey} onChange={(e) => setOpenrouterApiKey(e.target.value)} />
+                                    </Grid>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">Hugging Face</Text>
+                                        <TextField.Root type="password" placeholder="hf_..." value={huggingfaceApiKey} onChange={(e) => setHuggingfaceApiKey(e.target.value)} />
+                                    </Grid>
+                                    <Grid gap="1">
+                                        <Text size="1" weight="bold">カスタム / その他</Text>
+                                        <TextField.Root type="password" placeholder="API Key" value={customApiKey} onChange={(e) => setCustomApiKey(e.target.value)} />
+                                    </Grid>
+                                </Grid>
+                            </Grid>
                         </Grid>
                     </Tabs.Content>
 

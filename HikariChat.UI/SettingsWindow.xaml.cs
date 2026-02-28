@@ -36,14 +36,14 @@ public sealed partial class SettingsWindow : Window
 
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
 
-        nint hwnd = WindowNative.GetWindowHandle(this);
-        WindowId windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-        AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
+        // nint hwnd = WindowNative.GetWindowHandle(this);
+        // WindowId windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+        // AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
 
-        double scale = GetDpiScale();
-        int width = (int)(920 * scale);
-        int height = (int)(1080 * scale);
-        appWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
+        // double scale = GetDpiScale();
+        // int width = (int)(920 * scale);
+        // int height = (int)(1080 * scale);
+        // appWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
 
         InitializeSettingsWebView();
     }
