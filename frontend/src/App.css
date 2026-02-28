@@ -138,6 +138,10 @@
     height: calc(100vh - 215px);
 }
 
+.chat-tab-content:has(.pending-images-preview) .chat-messages {
+    height: calc(100vh - 292px);
+}
+
 .chat-messages:empty::before {
     content: "AI \3068\306E\30C1\30E3\30C3\30C8\3092\958B\59CB\3057\307E\3057\3087\3046";
     color: var(--gray-9);
