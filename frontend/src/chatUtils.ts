@@ -10,6 +10,7 @@ import { AzureOpenAI } from 'openai';
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool' | 'error';
   content: string;
+  images?: string[]; // Array of base64 data strings (e.g., "data:image/png;base64,...")
   name?: string;
   tool_call_id?: string;
   tool_calls?: Array<{
@@ -75,21 +76,36 @@ export interface StreamCallbacks {
 
 /**
  * Convert internal ChatMessage[] to OpenAI format.
- * 'error' role is treated as 'user' since OpenAI does not support it.
  */
 function toOpenAIMessages(messages: ChatMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
   return messages.map((msg): OpenAI.Chat.ChatCompletionMessageParam => {
+    let content: string | OpenAI.Chat.ChatCompletionContentPart[] = msg.content;
+
+    if (msg.images && msg.images.length > 0) {
+      const parts: OpenAI.Chat.ChatCompletionContentPart[] = [];
+      if (msg.content) {
+        parts.push({ type: 'text', text: msg.content });
+      }
+      for (const img of msg.images) {
+        parts.push({
+          type: 'image_url',
+          image_url: { url: img },
+        });
+      }
+      content = parts;
+    }
+
     const base = {
-      content: msg.content,
+      content,
       ...(msg.name ? { name: msg.name } : {}),
     };
 
     if (msg.role === 'tool') {
       if (!msg.tool_call_id) {
         console.warn('[toOpenAIMessages] tool message missing tool_call_id, falling back to user');
-        return { role: 'user', content: msg.content };
+        return { role: 'user', content: msg.content } as OpenAI.Chat.ChatCompletionMessageParam;
       }
-      return { role: 'tool', tool_call_id: msg.tool_call_id, content: msg.content };
+      return { role: 'tool', tool_call_id: msg.tool_call_id, content: msg.content } as OpenAI.Chat.ChatCompletionMessageParam;
     }
 
     if (msg.role === 'assistant' && msg.tool_calls) {
@@ -97,7 +113,7 @@ function toOpenAIMessages(messages: ChatMessage[]): OpenAI.Chat.ChatCompletionMe
         role: 'assistant',
         content: msg.content,
         tool_calls: msg.tool_calls,
-      };
+      } as OpenAI.Chat.ChatCompletionMessageParam;
     }
 
     const role = msg.role === 'error' ? 'user' : msg.role;
@@ -107,17 +123,12 @@ function toOpenAIMessages(messages: ChatMessage[]): OpenAI.Chat.ChatCompletionMe
 
 /**
  * Convert internal ChatMessage[] to Anthropic format.
- * - System messages are excluded (handled via the `system` parameter).
- * - tool role messages are converted to user messages with tool_result content.
- * - error role is treated as user.
- * - Consecutive same-role messages are merged (Anthropic requires alternating).
  */
 function toAnthropicMessages(messages: ChatMessage[]): Anthropic.MessageParam[] {
   const filtered = messages.filter(m => m.role !== 'system');
 
   const converted: Anthropic.MessageParam[] = filtered.map((msg): Anthropic.MessageParam => {
     if (msg.role === 'tool') {
-      // Wrap tool result in the correct Anthropic content block format
       return {
         role: 'user',
         content: [
@@ -130,12 +141,29 @@ function toAnthropicMessages(messages: ChatMessage[]): Anthropic.MessageParam[] 
       };
     }
 
-    if (msg.role === 'assistant' && msg.tool_calls) {
-      // Include tool_use blocks so Anthropic can correlate tool results
-      const contentBlocks: Anthropic.ContentBlockParam[] = [];
-      if (msg.content) {
-        contentBlocks.push({ type: 'text', text: msg.content });
+    const contentBlocks: Anthropic.ContentBlockParam[] = [];
+
+    if (msg.content) {
+      contentBlocks.push({ type: 'text', text: msg.content });
+    }
+
+    if (msg.images && msg.images.length > 0) {
+      for (const img of msg.images) {
+        const match = img.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+          contentBlocks.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: match[1] as any,
+              data: match[2],
+            },
+          });
+        }
       }
+    }
+
+    if (msg.role === 'assistant' && msg.tool_calls) {
       for (const tc of msg.tool_calls) {
         let input: Record<string, unknown> = {};
         try {
@@ -154,11 +182,9 @@ function toAnthropicMessages(messages: ChatMessage[]): Anthropic.MessageParam[] 
     }
 
     const role = msg.role === 'error' ? 'user' : (msg.role as 'user' | 'assistant');
-    return { role, content: msg.content };
+    return { role, content: contentBlocks.length > 1 ? contentBlocks : msg.content };
   });
 
-  // Anthropic requires strictly alternating user/assistant messages.
-  // Merge consecutive messages with the same role.
   return mergeConsecutiveSameRole(converted);
 }
 
@@ -386,33 +412,48 @@ async function sendToGemini(
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
   const apiKey = selectApiKey(options);
-  const ai = new GoogleGenAI({
-    apiKey: apiKey,
-    ...(options.endpointPreset === 'custom' && options.apiEndpoint
-      ? { httpOptions: { baseUrl: options.apiEndpoint } }
-      : {}),
-  });
-
+  const genAI = new (GoogleGenAI as any)({ apiKey });
+  
   const systemInstruction = messages.find(m => m.role === 'system')?.content;
   const nonSystemMessages = messages.filter(m => m.role !== 'system');
 
-  const contents = nonSystemMessages.map(msg => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }));
+  const contents = nonSystemMessages.map(msg => {
+    const parts: any[] = [];
+    if (msg.content) {
+      parts.push({ text: msg.content });
+    }
 
-  const config = systemInstruction ? { systemInstruction } : undefined;
+    if (msg.images && msg.images.length > 0) {
+      for (const img of msg.images) {
+        const match = img.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+          parts.push({
+            inlineData: {
+              mimeType: match[1],
+              data: match[2],
+            },
+          });
+        }
+      }
+    }
+
+    return {
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts,
+    };
+  });
+
+  const model = (genAI as any).getGenerativeModel({
+    model: options.model,
+    systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+  });
 
   if (options.streaming && callbacks?.onContent) {
-    const stream = await ai.models.generateContentStream({
-      model: options.model,
-      contents,
-      ...(config ? { config } : {}),
-    });
+    const stream = await model.generateContentStream({ contents });
     let fullContent = '';
 
-    for await (const chunk of stream) {
-      const text = chunk.text;
+    for await (const chunk of (stream as any).stream) {
+      const text = chunk.text();
       if (text) {
         fullContent += text;
         callbacks.onContent(text);
@@ -424,12 +465,8 @@ async function sendToGemini(
     return result;
   }
 
-  const response = await ai.models.generateContent({
-    model: options.model,
-    contents,
-    ...(config ? { config } : {}),
-  });
-  const result: SendMessageResult = { content: response.text ?? '', toolCalls: [] };
+  const response = await model.generateContent({ contents });
+  const result: SendMessageResult = { content: (response as any).response.text() ?? '', toolCalls: [] };
   callbacks?.onComplete?.(result);
   return result;
 }

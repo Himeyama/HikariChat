@@ -33,6 +33,7 @@ const webview = (window as any).chrome?.webview || mockWebView2;
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'error' | 'tool';
   content: string;
+  images?: string[];
   tool_call_id?: string;
   name?: string;
   tool_calls?: any[];
@@ -100,12 +101,14 @@ function App() {
   const chatMessagesRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const activeTabIdRef = useRef<string>('tab-chat-1');
   const prevActiveTabIdRef = useRef<string>('tab-chat-1');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [tabCounter, setTabCounter] = useState(1);
   const [tabs, setTabs] = useState<Record<string, ChatTab>>({
     'tab-chat-1': { name: '新しいタブ', conversationHistory: [], isLoading: false },
   });
   const [activeTabId, setActiveTabId] = useState('tab-chat-1');
   const [currentSettings, setCurrentSettings] = useState<Settings>(loadSettings());
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -161,7 +164,7 @@ function App() {
 
   useEffect(() => {
     updateSendButtonState();
-  }, [chatInput, activeTab?.isLoading, 
+  }, [chatInput, activeTab?.isLoading, pendingImages,
       currentSettings.openaiApiKey, currentSettings.anthropicApiKey, currentSettings.googleApiKey,
       currentSettings.grokApiKey, currentSettings.deepseekApiKey, currentSettings.openrouterApiKey,
       currentSettings.huggingfaceApiKey, currentSettings.customApiKey,
@@ -250,12 +253,50 @@ function App() {
     webview.postMessage('{ "method": "tools/call", "params": {"name": "openSettings", "arguments": {} } }');
   };
 
-  const addMessage = (content: string, role: ChatMessage['role'], toolName?: string, toolCallId?: string) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setPendingImages(prev => [...prev, base64]);
+      };
+      reader.readAsDataURL(file);
+    });
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64 = event.target?.result as string;
+            setPendingImages(prev => [...prev, base64]);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    }
+  };
+
+  const removePendingImage = (index: number) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addMessage = (content: string, role: ChatMessage['role'], toolName?: string, toolCallId?: string, images?: string[]) => {
     setTabs(prevTabs => {
       const currentTabId = activeTabIdRef.current;
       const message: ChatMessage = { role, content };
       if (toolName) message.name = toolName;
       if (toolCallId) message.tool_call_id = toolCallId;
+      if (images) message.images = images;
       const updatedHistory = [...prevTabs[currentTabId].conversationHistory, message];
       return {
         ...prevTabs,
@@ -275,7 +316,7 @@ function App() {
     console.log('[callChatApi] Sending messages:', JSON.stringify(messages, null, 2));
 
     return new Promise((resolve, reject) => {
-      sendChatMessage(messages, {
+      sendChatMessage(messages as any, {
         openaiApiKey: currentSettings.openaiApiKey,
         anthropicApiKey: currentSettings.anthropicApiKey,
         googleApiKey: currentSettings.googleApiKey,
@@ -336,7 +377,7 @@ function App() {
     console.log('[callChatApiWithTools] Tools:', JSON.stringify(tools, null, 2));
 
     return new Promise((resolve, reject) => {
-      sendChatMessage(messages, {
+      sendChatMessage(messages as any, {
         openaiApiKey: currentSettings.openaiApiKey,
         anthropicApiKey: currentSettings.anthropicApiKey,
         googleApiKey: currentSettings.googleApiKey,
@@ -473,14 +514,14 @@ function App() {
 
     // Build messages for next request with tool results
     const nextMessages = buildMessagesForNextRequest(
-      localMessages,
+      localMessages as any,
       result.content,
       result.toolCalls,
       toolResults
     );
 
     // Recursive call for next iteration
-    await processChatRecursive(nextMessages, executedToolCallIds, iterationCount + 1, maxIterations);
+    await processChatRecursive(nextMessages as any, executedToolCallIds, iterationCount + 1, maxIterations);
   };
 
   /**
@@ -535,14 +576,14 @@ function App() {
 
     // Build messages for next request with tool results
     const nextMessages = buildMessagesForNextRequest(
-      localMessages,
+      localMessages as any,
       result.content,
       result.toolCalls,
       toolResults
     );
 
     // Recursive call for next iteration
-    await processChatRecursiveWithTools(nextMessages, executedToolCallIds, iterationCount + 1, maxIterations, tools);
+    await processChatRecursiveWithTools(nextMessages as any, executedToolCallIds, iterationCount + 1, maxIterations, tools);
   };
 
   const getSelectedApiKey = () => {
@@ -569,7 +610,7 @@ function App() {
   };
 
   const sendMessage = async () => {
-    if (!chatInput.trim() || activeTab.isLoading) return;
+    if ((!chatInput.trim() && pendingImages.length === 0) || activeTab.isLoading) return;
 
     if (currentSettings.endpointPreset !== "ollama" && !getSelectedApiKey()) {
       addMessage("API キーが設定されていません。設定から入力してください。", "error");
@@ -583,6 +624,7 @@ function App() {
     }));
 
     const messageToSend = chatInput.trim();
+    const imagesToSend = [...pendingImages];
 
     // タブ名が「新しいタブ」の場合、メッセージをタブ名に設定（表示はCSSで省略）
     if (activeTab.name === '新しいタブ') {
@@ -590,11 +632,11 @@ function App() {
             ...prevTabs,
             [activeTabId]: {
                 ...prevTabs[activeTabId],
-                name: messageToSend,
+                name: messageToSend || (imagesToSend.length > 0 ? '画像を送信' : '新しいタブ'),
             }
         }));
     }
-    const userMessage: ChatMessage = { role: "user", content: messageToSend };
+    const userMessage: ChatMessage = { role: "user", content: messageToSend, images: imagesToSend };
 
     // 過去の会話履歴を含めてAPIに送信（error/toolはUI専用なので除外）
     const historyForApi = (activeTab.conversationHistory ?? []).filter(
@@ -610,8 +652,9 @@ function App() {
       : [];
     
     // Add user message to UI
-    addMessage(messageToSend, "user");
+    addMessage(messageToSend, "user", undefined, undefined, imagesToSend);
     setChatInput('');
+    setPendingImages([]);
 
     try {
       const executedToolCallIds = new Set<string>();
@@ -761,6 +804,13 @@ function App() {
                       </Box>
                     ) : (
                     <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
+                      {message.images && message.images.length > 0 && (
+                        <Box className="message-images" mb="2">
+                          {message.images.map((img, i) => (
+                            <img key={i} src={img} alt="uploaded" className="chat-image" />
+                          ))}
+                        </Box>
+                      )}
                       <Box
                         className="message-content"
                         dangerouslySetInnerHTML={{ __html: (message.role === 'assistant' || message.role === 'user') ? customMarked.parse(message.content) as string : message.content }}
@@ -770,28 +820,71 @@ function App() {
                   ))
                 )}
               </Box>
-              <Box
-                className="chat-input-area"
-              >
-                <TextArea
-                  placeholder="メッセージを入力..."
-                  rows={3}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                  disabled={activeTab.isLoading}
-                />
-                <Button
-                  size="3"
-                  onClick={sendMessage}
-                  disabled={!chatInput.trim() || activeTab.isLoading}
-                >&#xE74A;</Button>
-              </Box>
+              <Grid className="chat-input-container">
+                {pendingImages.length > 0 && (
+                  <Grid className="pending-images-preview" p="2">
+                    {pendingImages.map((img, i) => (
+                      <Grid key={i} className="pending-image-item">
+                        <img src={img} alt="preview" />
+                        <Button
+                          variant="soft"
+                          color="red"
+                          size="1"
+                          className="remove-image-button"
+                          onClick={() => removePendingImage(i)}
+                        >
+                          ✕
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                )}
+                <Grid className="chat-input-area">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleImageUpload}
+                  />
+                  <Grid className='image-button-area'>
+                    <Button
+                      variant="ghost"
+                      size="3"
+                      className="attach-button"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="画像を添付"
+                    >
+                      &#xEB9F;
+                    </Button>
+                  </Grid>
+                  <Grid className='input-text-area'>
+                    <TextArea
+                      placeholder="メッセージを入力..."
+                      rows={3}
+                      radius="large"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      onPaste={handlePaste}
+                      disabled={activeTab.isLoading}
+                    />
+                  </Grid>
+                  <Grid className='send-button-area'>
+                    <Button
+                      size="3"
+                      onClick={sendMessage}
+                      disabled={(!chatInput.trim() && pendingImages.length === 0) || activeTab.isLoading}
+                    >&#xE74A;</Button>
+                  </Grid>
+                </Grid>
+              </Grid>
             </Tabs.Content>
           ))}
         </Tabs.Root>
