@@ -1,4 +1,4 @@
-<div style="text-align: center;">
+<div align="center">
 
 # ✨ HikariChat
 
@@ -8,7 +8,19 @@
 
 <img alt="image" src="https://github.com/user-attachments/assets/61e39c6c-8ea3-44c1-a583-a79d6831954a" />
 
-<div style="text-align: center;">
+<div align="center">
+
+## 🖼️ 主な機能
+
+</div>
+
+- **マルチモーダル対応** — 画像をファイル選択またはクリップボードのペーストで添付し、AI に送信できます
+- **画像プレビュー** — 送信前に添付画像をプレビュー表示し、個別に削除できます
+- **複数タブ** — 会話を複数のタブで並行管理できます
+- **ストリーミング表示** — AI の返答をリアルタイムでストリーミング表示します
+- **ツール呼び出し** — Function Calling / Tool Use に対応しています
+
+<div align="center">
 
 ## 🌟 接続可能なプロバイダー
 
