@@ -804,17 +804,17 @@ function App() {
                       </Box>
                     ) : (
                     <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
+                      <Box
+                        className="message-content"
+                        dangerouslySetInnerHTML={{ __html: (message.role === 'assistant' || message.role === 'user') ? customMarked.parse(message.content) as string : message.content }}
+                      />
                       {message.images && message.images.length > 0 && (
-                        <Box className="message-images" mb="2">
+                        <Box className="message-images" mt="2">
                           {message.images.map((img, i) => (
                             <img key={i} src={img} alt="uploaded" className="chat-image" />
                           ))}
                         </Box>
                       )}
-                      <Box
-                        className="message-content"
-                        dangerouslySetInnerHTML={{ __html: (message.role === 'assistant' || message.role === 'user') ? customMarked.parse(message.content) as string : message.content }}
-                      />
                     </Box>
                     )
                   ))
