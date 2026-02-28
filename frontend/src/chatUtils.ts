@@ -231,10 +231,17 @@ async function sendToOpenAI(
   options: SendMessageOptions,
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
+  const isOpenRouter = options.endpointPreset === 'openrouter';
   const openai = new OpenAI({
     apiKey: options.apiKey,
     baseURL: options.apiEndpoint.replace('/chat/completions', ''),
     dangerouslyAllowBrowser: true,
+    ...(isOpenRouter ? {
+      defaultHeaders: {
+        'HTTP-Referer': 'https://github.com/hikari/HikariChat',
+        'X-Title': 'HikariChat',
+      },
+    } : {}),
   });
 
   const baseBody = {

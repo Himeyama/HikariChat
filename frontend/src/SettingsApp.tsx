@@ -5,6 +5,7 @@ import './App.css'; // Reuse general styles like .window, .title-bar etc.
 const presetDisplayNames: Record<string, string> = {
     openai: "OpenAI",
     azure_openai: "Azure OpenAI",
+    openrouter: "OpenRouter",
     custom: "カスタム",
 };
 
@@ -89,6 +90,12 @@ const endpoints = {
         claude: "",
         gemini: ""
     },
+    openrouter: {
+        chat_completions: "https://openrouter.ai/api/v1/chat/completions",
+        azure: "",
+        claude: "",
+        gemini: ""
+    },
     ollama: {
         chat_completions: "http://localhost:11434/v1/chat/completions",
         azure: "",
@@ -104,10 +111,10 @@ const endpoints = {
 };
 
 type ApiType = 'azure' | 'gemini' | 'claude' | 'chat_completions';
-type EndpointPreset = 'openai' | 'azure_openai' | 'gemini' | 'grok' | 'anthropic' | 'deepseek' | 'ollama' | 'custom';
+type EndpointPreset = 'openai' | 'azure_openai' | 'gemini' | 'grok' | 'anthropic' | 'deepseek' | 'openrouter' | 'ollama' | 'custom';
 
 const compatibleEndpoints = {
-    chat_completions: ["openai", "azure_openai", "grok", "deepseek", "ollama", "custom"],
+    chat_completions: ["openai", "azure_openai", "grok", "deepseek", "openrouter", "ollama", "custom"],
     azure: ["azure_openai", "custom"],
     claude: ["anthropic", "custom"],
     gemini: ["gemini", "custom"]
@@ -154,6 +161,16 @@ const models: Record<EndpointPreset | string, string[]> = {
     ],
     deepseek: [
         "deepseek-chat", "deepseek-reasoner",
+    ],
+    openrouter: [
+        "openai/gpt-4.1", "openai/gpt-4.1-mini", "openai/gpt-4o", "openai/gpt-4o-mini",
+        "anthropic/claude-opus-4-6", "anthropic/claude-sonnet-4-6", "anthropic/claude-haiku-4-5",
+        "google/gemini-2.5-pro", "google/gemini-2.5-flash", "google/gemini-2.0-flash",
+        "deepseek/deepseek-chat", "deepseek/deepseek-r1",
+        "x-ai/grok-3", "x-ai/grok-3-mini",
+        "meta-llama/llama-3.3-70b-instruct",
+        "mistralai/mistral-large",
+        "qwen/qwen-2.5-72b-instruct",
     ],
     ollama: [
         "llama3.3", "llama3.2", "qwen3", "qwen2.5", "deepseek-r1",
