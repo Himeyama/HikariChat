@@ -6,7 +6,7 @@
 
 各 API で使用可能な LLM クライアントアプリ。
 
-<img alt="image" src="https://github.com/user-attachments/assets/bdfbe3f2-2c8f-4295-88e2-eb1adc43ba98" />
+<img alt="image" src="https://github.com/user-attachments/assets/61e39c6c-8ea3-44c1-a583-a79d6831954a" />
 
 <div style="text-align: center;">
 
