@@ -159,6 +159,7 @@ function App() {
       gemini: 'Google Gemini',
       grok: 'Grok (xAI)',
       anthropic: 'Anthropic',
+      deepseek: 'DeepSeek',
       ollama: 'Ollama'
     };
 

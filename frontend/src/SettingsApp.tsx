@@ -83,6 +83,12 @@ const endpoints = {
         claude: "https://api.anthropic.com/v1/messages",
         gemini: ""
     },
+    deepseek: {
+        chat_completions: "https://api.deepseek.com/v1/chat/completions",
+        azure: "",
+        claude: "",
+        gemini: ""
+    },
     ollama: {
         chat_completions: "http://localhost:11434/v1/chat/completions",
         azure: "",
@@ -98,10 +104,10 @@ const endpoints = {
 };
 
 type ApiType = 'azure' | 'gemini' | 'claude' | 'chat_completions';
-type EndpointPreset = 'openai' | 'azure_openai' | 'gemini' | 'grok' | 'anthropic' | 'ollama' | 'custom';
+type EndpointPreset = 'openai' | 'azure_openai' | 'gemini' | 'grok' | 'anthropic' | 'deepseek' | 'ollama' | 'custom';
 
 const compatibleEndpoints = {
-    chat_completions: ["openai", "azure_openai", "grok", "ollama", "custom"],
+    chat_completions: ["openai", "azure_openai", "grok", "deepseek", "ollama", "custom"],
     azure: ["azure_openai", "custom"],
     claude: ["anthropic", "custom"],
     gemini: ["gemini", "custom"]
@@ -145,6 +151,9 @@ const models: Record<EndpointPreset | string, string[]> = {
     anthropic: [
         "claude-opus-4-6", "claude-sonnet-4-6", "claude-opus-4-5",
         "claude-sonnet-4-5", "claude-haiku-4-5",
+    ],
+    deepseek: [
+        "deepseek-chat", "deepseek-reasoner",
     ],
     ollama: [
         "llama3.3", "llama3.2", "qwen3", "qwen2.5", "deepseek-r1",
