@@ -1,7 +1,7 @@
 # HikariChat
 各 API で使用可能な LLM クライアントアプリ。
 
-<img width="2420" height="1754" alt="image" src="https://github.com/user-attachments/assets/71463bc7-0997-42fa-b8cc-3f950a083186" />
+<img width="3477" height="1942" alt="image" src="https://github.com/user-attachments/assets/bdfbe3f2-2c8f-4295-88e2-eb1adc43ba98" />
 
 > [!NOTE]
 > 開発のルールについては [docs/](docs/) を参照。
