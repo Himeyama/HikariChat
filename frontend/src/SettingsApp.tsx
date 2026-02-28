@@ -6,6 +6,7 @@ const presetDisplayNames: Record<string, string> = {
     openai: "OpenAI",
     azure_openai: "Azure OpenAI",
     openrouter: "OpenRouter",
+    huggingface: "Hugging Face",
     custom: "カスタム",
 };
 
@@ -96,6 +97,12 @@ const endpoints = {
         claude: "",
         gemini: ""
     },
+    huggingface: {
+        chat_completions: "https://router.huggingface.co/v1/chat/completions",
+        azure: "",
+        claude: "",
+        gemini: ""
+    },
     ollama: {
         chat_completions: "http://localhost:11434/v1/chat/completions",
         azure: "",
@@ -111,10 +118,10 @@ const endpoints = {
 };
 
 type ApiType = 'azure' | 'gemini' | 'claude' | 'chat_completions';
-type EndpointPreset = 'openai' | 'azure_openai' | 'gemini' | 'grok' | 'anthropic' | 'deepseek' | 'openrouter' | 'ollama' | 'custom';
+type EndpointPreset = 'openai' | 'azure_openai' | 'gemini' | 'grok' | 'anthropic' | 'deepseek' | 'openrouter' | 'huggingface' | 'ollama' | 'custom';
 
 const compatibleEndpoints = {
-    chat_completions: ["openai", "azure_openai", "grok", "deepseek", "openrouter", "ollama", "custom"],
+    chat_completions: ["openai", "azure_openai", "grok", "deepseek", "openrouter", "huggingface", "ollama", "custom"],
     azure: ["azure_openai", "custom"],
     claude: ["anthropic", "custom"],
     gemini: ["gemini", "custom"]
@@ -171,6 +178,34 @@ const models: Record<EndpointPreset | string, string[]> = {
         "meta-llama/llama-3.3-70b-instruct",
         "mistralai/mistral-large",
         "qwen/qwen-2.5-72b-instruct",
+    ],
+    huggingface: [
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "google/gemma-3-27b-it",
+        "google/gemma-3-12b-it",
+        "google/gemma-3-4b-it",
+        "microsoft/Phi-4",
+        "microsoft/Phi-4-reasoning",
+        "microsoft/Phi-3.5-MoE-instruct",
+        "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+        "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+        "meta-llama/Llama-3.3-70B-Instruct",
+        "xai-org/grok-3-mini-beta",
+        "deepseek-ai/DeepSeek-R1",
+        "deepseek-ai/DeepSeek-V3",
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+        "deepseek-ai/DeepSeek-V3-1",
+        "Qwen/Qwen3-235B-A22B",
+        "Qwen/Qwen3-32B",
+        "Qwen/Qwen2.5-72B-Instruct",
+        "Qwen/QwQ-32B",
+        "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+        "mistralai/Mixtral-8x22B-Instruct-v0.1",
+        "mistralai/Mistral-Nemo-Instruct-2407",
+        "CohereForAI/c4ai-command-r-plus-08-2024",
+        "01-ai/Yi-1.5-34B-Chat",
+        "baidu/ERNIE-4.5-0.3B-PT",
     ],
     ollama: [
         "llama3.3", "llama3.2", "qwen3", "qwen2.5", "deepseek-r1",
