@@ -406,6 +406,67 @@ async function sendToAzureOpenAI(
   return result;
 }
 
+// ============================================================
+// Gemini context cache state
+// ============================================================
+
+interface GeminiCacheState {
+  cacheId: string;
+  model: string;
+  prefixHash: string;
+  expiresAt: number;
+}
+let geminiCacheState: GeminiCacheState | null = null;
+
+function hashGeminiPrefix(model: string, contents: any[], systemInstruction?: string): string {
+  const str = JSON.stringify({ model, contents, systemInstruction });
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return String(hash >>> 0);
+}
+
+async function getOrCreateGeminiCache(
+  genAI: GoogleGenAI,
+  model: string,
+  prefixContents: any[],
+  systemInstruction?: string
+): Promise<string | null> {
+  const hash = hashGeminiPrefix(model, prefixContents, systemInstruction);
+  const now = Date.now();
+
+  if (geminiCacheState?.prefixHash === hash && geminiCacheState.expiresAt > now) {
+    return geminiCacheState.cacheId;
+  }
+
+  if (geminiCacheState) {
+    try { await genAI.caches.delete({ name: geminiCacheState.cacheId }); } catch { /* ignore */ }
+    geminiCacheState = null;
+  }
+
+  try {
+    const cached = await genAI.caches.create({
+      model: `models/${model}`,
+      config: {
+        ttl: '3600s',
+        contents: prefixContents,
+        ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
+      },
+    });
+    geminiCacheState = {
+      cacheId: cached.name!,
+      model,
+      prefixHash: hash,
+      expiresAt: now + 3600 * 1000,
+    };
+    return cached.name!;
+  } catch {
+    return null;
+  }
+}
+
 async function sendToGemini(
   messages: ChatMessage[],
   options: SendMessageOptions,
@@ -417,37 +478,50 @@ async function sendToGemini(
   const systemInstruction = messages.find(m => m.role === 'system')?.content;
   const nonSystemMessages = messages.filter(m => m.role !== 'system');
 
-  const contents = nonSystemMessages.map(msg => {
+  const toGeminiContent = (msg: ChatMessage) => {
     const parts: any[] = [];
     if (msg.content) {
       parts.push({ text: msg.content });
     }
-
     if (msg.images && msg.images.length > 0) {
       for (const img of msg.images) {
         const match = img.match(/^data:(image\/\w+);base64,(.+)$/);
         if (match) {
-          parts.push({
-            inlineData: {
-              mimeType: match[1],
-              data: match[2],
-            },
-          });
+          parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
         }
       }
     }
+    return { role: msg.role === 'assistant' ? 'model' : 'user', parts };
+  };
 
-    return {
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts,
-    };
-  });
+  const contents = nonSystemMessages.map(toGeminiContent);
+
+  // キャッシュ試行: 最後のユーザーメッセージ以外をプレフィックスとしてキャッシュする
+  let cachedContentName: string | null = null;
+  const prefixContents = contents.slice(0, -1);
+
+  if (prefixContents.length > 0) {
+    cachedContentName = await getOrCreateGeminiCache(
+      genAI,
+      options.model,
+      prefixContents,
+      systemInstruction
+    );
+  }
+
+  const lastContent = contents.slice(-1);
+  const requestContents = cachedContentName ? lastContent : contents;
+  const baseConfig: any = cachedContentName
+    ? { cachedContent: cachedContentName }
+    : systemInstruction
+      ? { systemInstruction: { parts: [{ text: systemInstruction }] } }
+      : undefined;
 
   if (options.streaming && callbacks?.onContent) {
     const stream = await genAI.models.generateContentStream({
       model: options.model,
-      contents,
-      config: systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : undefined,
+      contents: requestContents,
+      config: baseConfig,
     });
     let fullContent = '';
 
@@ -466,8 +540,8 @@ async function sendToGemini(
 
   const response = await genAI.models.generateContent({
     model: options.model,
-    contents,
-    config: systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : undefined,
+    contents: requestContents,
+    config: baseConfig,
   });
   const result: SendMessageResult = { content: response.text ?? '', toolCalls: [] };
   callbacks?.onComplete?.(result);
