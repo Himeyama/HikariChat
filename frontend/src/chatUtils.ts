@@ -412,8 +412,8 @@ async function sendToGemini(
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
   const apiKey = selectApiKey(options);
-  const genAI = new (GoogleGenAI as any)({ apiKey });
-  
+  const genAI = new GoogleGenAI({ apiKey });
+
   const systemInstruction = messages.find(m => m.role === 'system')?.content;
   const nonSystemMessages = messages.filter(m => m.role !== 'system');
 
@@ -443,17 +443,16 @@ async function sendToGemini(
     };
   });
 
-  const model = (genAI as any).getGenerativeModel({
-    model: options.model,
-    systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-  });
-
   if (options.streaming && callbacks?.onContent) {
-    const stream = await model.generateContentStream({ contents });
+    const stream = await genAI.models.generateContentStream({
+      model: options.model,
+      contents,
+      config: systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : undefined,
+    });
     let fullContent = '';
 
-    for await (const chunk of (stream as any).stream) {
-      const text = chunk.text();
+    for await (const chunk of stream) {
+      const text = chunk.text;
       if (text) {
         fullContent += text;
         callbacks.onContent(text);
@@ -465,8 +464,12 @@ async function sendToGemini(
     return result;
   }
 
-  const response = await model.generateContent({ contents });
-  const result: SendMessageResult = { content: (response as any).response.text() ?? '', toolCalls: [] };
+  const response = await genAI.models.generateContent({
+    model: options.model,
+    contents,
+    config: systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : undefined,
+  });
+  const result: SendMessageResult = { content: response.text ?? '', toolCalls: [] };
   callbacks?.onComplete?.(result);
   return result;
 }
