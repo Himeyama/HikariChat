@@ -179,8 +179,14 @@ const CUSTOM_MODEL_VALUE = "__custom__";
 
 const models: Record<EndpointPreset | string, string[]> = {
     openai: [
-        "gpt-5.2", "gpt-5.2-pro", "gpt-5", "gpt-5-mini", "gpt-5-nano",
+        "gpt-5.2", "gpt-5.2-pro", "gpt-5.1", "gpt-5", "gpt-5-pro", "gpt-5-mini", "gpt-5-nano",
         "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini",
+        "gpt-relatime", "gpt-realtime-1.5", "gpt-realtime-mini",
+        "gpt-5.3-codex", "gpt-5.2-codex", "gpt-5.1-codex-max", "gpt-5.1-codex", "gpt-5-codex",
+        "gpt-5.1-codex-mini", "codex-mini-latest",
+        "o3", "o4-mini", "o4-mini-deep-research",
+        "o3-mini", "o1-mini",
+        "gpt-5-search-api", "gpt-4o-mini-search-preview", "gpt-4o-search-preview"
     ],
     azure_openai: [
         "gpt-5", "gpt-5-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
