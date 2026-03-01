@@ -489,7 +489,7 @@ async function sendToAnthropic(
     model: options.model,
     max_tokens: 4096,
     messages: anthropicMessages,
-    ...(systemMessage ? { system: systemMessage } : {}),
+    ...(systemMessage ? { system: [{ type: 'text', text: systemMessage, cache_control: { type: 'ephemeral' } }] } : {}),
     ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
   };
 

@@ -139,7 +139,7 @@
 }
 
 .chat-tab-content:has(.pending-images-preview) .chat-messages {
-    height: calc(100vh - 292px);
+    height: calc(100vh - 310px);
 }
 
 .chat-messages:empty::before {
