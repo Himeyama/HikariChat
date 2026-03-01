@@ -135,7 +135,7 @@
     overflow-y: scroll;
     padding: var(--space-3);
     min-height: 0;
-    height: calc(100vh - 215px);
+    height: calc(100vh - 234px);
 }
 
 .chat-tab-content:has(.pending-images-preview) .chat-messages {
@@ -317,11 +317,6 @@
   border: 1px solid var(--gray-5);
 }
 
-.chat-input-container {
-  border-top: 1px solid var(--gray-5);
-  background-color: var(--gray-2);
-}
-
 .pending-images-preview {
   gap: 10px;
   overflow-x: auto;
@@ -373,12 +368,24 @@
     width: 40px;
     height: 40px;
     position: relative;
-    margin: 56px 64px auto auto;
+    border-radius: 8px;
+    background: var(--accent-3);
+    transition: .3s;
+    margin: 64px 80px auto auto;
+}
+
+.image-button-area:hover {
+    background: var(--accent-6);
+}
+
+.image-button-area input {
+    cursor: pointer !important;
 }
 
 .input-text-area {
     grid-row: 1 / 1 !important;
     grid-column: 1 / 1 !important;
+    height: 120px;
 }
 
 .send-button-area {
@@ -386,7 +393,7 @@
     grid-column: 1 / 1 !important;
     height: 40px;
     width: 40px;
-    margin: 56px 16px 0 auto;
+    margin: 64px 24px 0 auto;
 }
 
 .send-button-area button {
@@ -396,7 +403,6 @@
 
 .chat-input-area {
     gap: 8px;
-    height: 133px;
     grid-template-rows: 1fr !important;
     grid-template-columns: 1fr !important;
     padding: 16px;
@@ -410,7 +416,6 @@
     font-size: 14px;
     font-family: BIZ UDGothic, Noto Sans JP;
     padding: 16px;
-    height: 104px;
 }
 
 .chat-input-area button:not(.attach-button) {
@@ -419,6 +424,7 @@
     border-radius: var(--radius-4);
     margin-bottom: 2px;
     font-family: 'Segoe Fluent Icons' !important;
+    transition: .3s;
 }
 
 .title-bar-controls {
