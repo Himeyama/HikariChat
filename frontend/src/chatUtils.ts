@@ -412,7 +412,11 @@ async function sendToGemini(
   callbacks?: StreamCallbacks
 ): Promise<SendMessageResult> {
   const apiKey = selectApiKey(options);
-  const genAI = new GoogleGenAI({ apiKey });
+  const useCustomEndpoint = options.endpointPreset !== 'gemini' && options.apiEndpoint;
+  const genAI = new GoogleGenAI({
+    apiKey,
+    ...(useCustomEndpoint ? { httpOptions: { baseUrl: options.apiEndpoint } } : {}),
+  });
 
   const systemInstruction = messages.find(m => m.role === 'system')?.content;
   const nonSystemMessages = messages.filter(m => m.role !== 'system');
