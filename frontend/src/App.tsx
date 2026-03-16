@@ -43,6 +43,7 @@ interface ChatTab {
   name: string;
   conversationHistory: ChatMessage[];
   isLoading: boolean;
+  workingDirectories?: string[];
 }
 
 interface Settings {
@@ -609,8 +610,78 @@ function App() {
     }
   };
 
+  const commandHelp: Record<string, string> = {
+    '/add-dir': '/add-dir <DIRECTORY> — 作業ディレクトリを追加',
+    '/help': '/help — コマンド一覧を表示',
+  };
+
+  const handleCommand = async (input: string): Promise<boolean> => {
+    // /command または /command args のパターンにマッチするか
+    const commandMatch = input.match(/^\/([a-z-]+)(?:\s+(.*))?$/);
+    if (!commandMatch) return false;
+
+    const command = commandMatch[1];
+    const args = commandMatch[2]?.trim() ?? '';
+
+    switch (command) {
+      case 'help': {
+        const helpText = Object.values(commandHelp).join('\n');
+        addMessage(`[SYSTEM] 使用可能なコマンド:\n${helpText}`, 'system');
+        break;
+      }
+      case 'add-dir': {
+        if (!args) {
+          addMessage(`[SYSTEM] 使用方法: /add-dir <DIRECTORY>`, 'error');
+          break;
+        }
+        try {
+          const response = await fetch('http://localhost:29000/api/fs/directory-exists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: args }),
+          });
+          const data = await response.json();
+          if (data.exists) {
+            const resolvedPath: string = data.path;
+            setTabs(prevTabs => {
+              const current = prevTabs[activeTabIdRef.current];
+              const dirs = current.workingDirectories ?? [];
+              if (dirs.includes(resolvedPath)) {
+                return prevTabs;
+              }
+              return {
+                ...prevTabs,
+                [activeTabIdRef.current]: {
+                  ...current,
+                  workingDirectories: [...dirs, resolvedPath],
+                },
+              };
+            });
+            addMessage(`[SYSTEM] ${resolvedPath} を作業ディレクトリとして設定しました。`, 'system');
+          } else {
+            addMessage(`[SYSTEM] ${args} は存在しないディレクトリです。`, 'error');
+          }
+        } catch {
+          addMessage(`[SYSTEM] ディレクトリの確認に失敗しました。`, 'error');
+        }
+        break;
+      }
+      default:
+        addMessage(`[SYSTEM] 不明なコマンド: /${command}\n/help でコマンド一覧を確認できます。`, 'error');
+        break;
+    }
+    setChatInput('');
+    return true;
+  };
+
   const sendMessage = async () => {
     if ((!chatInput.trim() && pendingImages.length === 0) || activeTab.isLoading) return;
+
+    // 内部コマンドの処理
+    if (chatInput.trim().startsWith('/')) {
+      const handled = await handleCommand(chatInput.trim());
+      if (handled) return;
+    }
 
     if (currentSettings.endpointPreset !== "ollama" && !getSelectedApiKey()) {
       addMessage("API キーが設定されていません。設定から入力してください。", "error");
@@ -638,11 +709,21 @@ function App() {
     }
     const userMessage: ChatMessage = { role: "user", content: messageToSend, images: imagesToSend };
 
-    // 過去の会話履歴を含めてAPIに送信（error/toolはUI専用なので除外）
+    // 過去の会話履歴を含めてAPIに送信（error/system/toolはUI専用なので除外）
     const historyForApi = (activeTab.conversationHistory ?? []).filter(
-      m => m.role !== 'error' && m.role !== 'tool'
+      m => m.role !== 'error' && m.role !== 'system' && m.role !== 'tool'
     );
-    const localMessages: ChatMessage[] = [...historyForApi, userMessage];
+    const localMessages: ChatMessage[] = [];
+
+    // 作業ディレクトリが設定されている場合、システムプロンプトとして先頭に追加
+    if (activeTab.workingDirectories && activeTab.workingDirectories.length > 0) {
+      localMessages.push({
+        role: 'system',
+        content: `作業ディレクトリ:\n${activeTab.workingDirectories.join('\n')}`,
+      });
+    }
+
+    localMessages.push(...historyForApi, userMessage);
 
     // MCP無効時はツールを送らない。APIの種類に応じてフォーマットを変換
     const openaiTools = currentSettings.mcpEnabled
@@ -751,7 +832,7 @@ function App() {
       <Grid className="title-bar" p="0">
         <Button className="window-control-icon settings-icon" onClick={openSettingsWindow} title="設定">&#xF8B0;</Button>
         <Grid className="title-bar-center">
-          <Text weight="bold" className="title-bar-text">ひかりチャット</Text>
+          <Text weight="bold" className="title-bar-text"></Text>
         </Grid>
         <Grid className="title-bar-controls">
           <Grid className="title-bar-right">
@@ -806,7 +887,7 @@ function App() {
                     <Box key={index} mb="2" p="3" className={`chat-message ${message.role}`}>
                       <Box
                         className="message-content"
-                        dangerouslySetInnerHTML={{ __html: (message.role === 'assistant' || message.role === 'user') ? customMarked.parse(message.content) as string : message.content }}
+                        dangerouslySetInnerHTML={{ __html: (message.role === 'assistant' || message.role === 'user') ? customMarked.parse(message.content) as string : message.content.replace(/\n/g, '<br>') }}
                       />
                       {message.images && message.images.length > 0 && (
                         <Box className="message-images" mt="2">

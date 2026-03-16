@@ -135,6 +135,19 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
+            // ディレクトリ存在チェック
+            if (path.Equals("/api/fs/directory-exists", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "POST")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleDirectoryExistsAsync(req, res);
+                return;
+            }
+
             // テスト自動化用：WebView2 で JavaScript を実行
             if (path.Equals("/api/test/execute-script", StringComparison.OrdinalIgnoreCase))
             {
@@ -409,12 +422,93 @@ public class SimpleApiServer : IDisposable
         }
     }
 
+    async Task HandleDirectoryExistsAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        try
+        {
+            string requestBody;
+            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
+                requestBody = await reader.ReadToEndAsync();
+
+            using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
+            JsonElement root = jsonDoc.RootElement;
+
+            if (!root.TryGetProperty("path", out JsonElement pathElem))
+            {
+                res.StatusCode = (int)HttpStatusCode.BadRequest;
+                await WriteJsonAsync(res, new { error = "path is required" });
+                return;
+            }
+
+            string dirPath = pathElem.GetString() ?? "";
+            bool exists = Directory.Exists(dirPath);
+
+            // 存在する場合、OS が認識する正確なパス（大文字小文字）を取得
+            string resolvedPath = dirPath;
+            if (exists)
+            {
+                try
+                {
+                    DirectoryInfo di = new(dirPath);
+                    // GetDirectories/GetFiles で親から実際の名前を辿ることで正確なケースを得る
+                    resolvedPath = GetExactPathName(di.FullName);
+                }
+                catch
+                {
+                    resolvedPath = Path.GetFullPath(dirPath);
+                }
+            }
+
+            res.StatusCode = (int)HttpStatusCode.OK;
+            await WriteJsonAsync(res, new { path = resolvedPath, exists });
+        }
+        catch (Exception ex)
+        {
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "Directory check error", detail = ex.Message });
+        }
+    }
+
     async Task WriteJsonAsync(HttpListenerResponse res, object obj)
     {
         string json = JsonSerializer.Serialize(obj, _jsonOptions);
         byte[] bytes = Encoding.UTF8.GetBytes(json);
         res.ContentLength64 = bytes.Length;
         await res.OutputStream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// ファイルシステムから正確な大文字小文字のパスを取得する。
+    /// 例: "c:\users\hikari" → "C:\Users\hikari"
+    /// </summary>
+    static string GetExactPathName(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return path;
+
+        // ルートドライブ部分を大文字にする (例: "c:\" → "C:\")
+        string root = Path.GetPathRoot(path) ?? "";
+        if (root.Length >= 1)
+            root = root[0].ToString().ToUpperInvariant() + root[1..];
+
+        string[] parts = path[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        string current = root;
+
+        foreach (string part in parts)
+        {
+            string? match = Directory.GetFileSystemEntries(current, part).FirstOrDefault();
+            if (match != null)
+            {
+                current = match;
+            }
+            else
+            {
+                // 見つからない場合はそのまま結合
+                current = Path.Combine(current, part);
+            }
+        }
+
+        return current;
     }
 
     private string GetMimeType(string filePath)
