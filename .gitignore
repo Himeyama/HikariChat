@@ -403,3 +403,5 @@ FodyWeavers.xsd
 *.sln
 *.zip
 *.exe
+
+.claude/settings.json

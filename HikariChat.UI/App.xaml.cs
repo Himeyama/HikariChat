@@ -65,6 +65,9 @@ public partial class App : Application
         LogInfo($"OnLaunched: Loading settings. McpEnabled={settings.McpEnabled}, McpServers.Count={settings.McpServers.Count}");
         await _mcpManager.UpdateSettingsAsync(settings);
         LogInfo($"OnLaunched: MCP Manager updated. Status={_mcpManager.GetStatus()}");
+
+        // MCP 初期化完了をフロントエンドに通知
+        _mainWindow.SendMcpStatus();
     }
 
     public MainWindow? MainWindow => _mainWindow;
