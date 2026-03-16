@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(./dev.ps1 run:*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File ./dev.ps1 run)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"chcp 65001 | Out-Null; & ./dev.ps1 run\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"dotnet run --project .\\\\HikariChat.UI\\\\HikariChat.UI.csproj\")"
+    ]
+  }
+}

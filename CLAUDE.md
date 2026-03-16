@@ -18,10 +18,29 @@ HikariChat は、複数の LLM プロバイダー (OpenAI, Anthropic, Google Gem
 - Node.js (frontend)
 
 ## よく使うコマンド
+> アプリのビルド
+```ps1
+# UI をビルドし、アプリをビルド
+npm run build && .\dev.ps1 build
+```
 
-```powershell
+> フロントエンドをビルドしてアプリを起動
+```ps1
 # UI をビルドし、アプリを起動
 npm run build --prefix frontend && .\dev.ps1 run
+```
+
+## コミットとプッシュ
+
+```ps1
+# UI をビルドし、アプリをビルド
+npm run build && .\dev.ps1 build
+
+# ビルドが成功した場合
+git commit -m <コミットメッセージ>
+
+# コミット後にプッシュ
+git push origin master
 ```
 
 ## プロジェクト構成
