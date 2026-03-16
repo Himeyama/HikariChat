@@ -39,6 +39,12 @@ function CreateShortcut($link, $target) {
 # メインコマンド
 # ============================================================
 
+function Build() {
+    ShowProgress "フロントエンドをビルドしています..." "🔨"
+    npm run build --prefix frontend
+    ShowProgress "フロントエンドのビルドが完了しました！" "✅"
+}
+
 function Run() {
     ShowProgress "アプリを起動します..." "🚀"
     dotnet run --project $csproj
@@ -160,6 +166,7 @@ function Pack() {
 Write-Host "開発アシスタント ✨`n" -ForegroundColor Gray
 
 switch ($arg) {
+    "build" { Build }
     "run" { Run }
     "publish" { Publish }
     "zip" { Zip }
@@ -169,7 +176,7 @@ switch ($arg) {
     "occupy-port" { OccupyPort }
     Default {
         Write-Host "使用可能なコマンドはこちらです 🤖" -ForegroundColor Magenta
-        Write-Host " .\dev.ps1 [run | publish | zip | install | uninstall | pack | occupy-port]" -ForegroundColor White
+        Write-Host " .\dev.ps1 [build | run | publish | zip | install | uninstall | pack | occupy-port]" -ForegroundColor White
     }
 }
 
