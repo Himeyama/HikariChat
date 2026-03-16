@@ -148,6 +148,19 @@ public class SimpleApiServer : IDisposable
                 return;
             }
 
+            // ディレクトリ内のプロジェクト説明ファイル (AGENTS.md / CLAUDE.md / README.md) を読み取る
+            if (path.Equals("/api/fs/project-instructions", StringComparison.OrdinalIgnoreCase))
+            {
+                if (req.HttpMethod != "POST")
+                {
+                    res.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    await WriteJsonAsync(res, new { error = "Method not allowed" });
+                    return;
+                }
+                await HandleProjectInstructionsAsync(req, res);
+                return;
+            }
+
             // テスト自動化用：WebView2 で JavaScript を実行
             if (path.Equals("/api/test/execute-script", StringComparison.OrdinalIgnoreCase))
             {
@@ -466,6 +479,60 @@ public class SimpleApiServer : IDisposable
         {
             res.StatusCode = (int)HttpStatusCode.InternalServerError;
             await WriteJsonAsync(res, new { error = "Directory check error", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// ディレクトリ内の AGENTS.md / CLAUDE.md / README.md を優先度順で読み取る。
+    /// 優先度: AGENTS.md > CLAUDE.md > README.md
+    /// </summary>
+    async Task HandleProjectInstructionsAsync(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        try
+        {
+            string requestBody;
+            using (StreamReader reader = new(req.InputStream, req.ContentEncoding))
+                requestBody = await reader.ReadToEndAsync();
+
+            using JsonDocument jsonDoc = JsonDocument.Parse(requestBody);
+            JsonElement root = jsonDoc.RootElement;
+
+            if (!root.TryGetProperty("path", out JsonElement pathElem))
+            {
+                res.StatusCode = (int)HttpStatusCode.BadRequest;
+                await WriteJsonAsync(res, new { error = "path is required" });
+                return;
+            }
+
+            string dirPath = pathElem.GetString() ?? "";
+            if (!Directory.Exists(dirPath))
+            {
+                res.StatusCode = (int)HttpStatusCode.OK;
+                await WriteJsonAsync(res, new { found = false, fileName = (string?)null, content = (string?)null });
+                return;
+            }
+
+            // 優先度順にチェック
+            string[] candidates = ["AGENTS.md", "CLAUDE.md", "README.md"];
+            foreach (string candidate in candidates)
+            {
+                string filePath = Path.Combine(dirPath, candidate);
+                if (File.Exists(filePath))
+                {
+                    string content = await File.ReadAllTextAsync(filePath);
+                    res.StatusCode = (int)HttpStatusCode.OK;
+                    await WriteJsonAsync(res, new { found = true, fileName = candidate, content });
+                    return;
+                }
+            }
+
+            res.StatusCode = (int)HttpStatusCode.OK;
+            await WriteJsonAsync(res, new { found = false, fileName = (string?)null, content = (string?)null });
+        }
+        catch (Exception ex)
+        {
+            res.StatusCode = (int)HttpStatusCode.InternalServerError;
+            await WriteJsonAsync(res, new { error = "Project instructions read error", detail = ex.Message });
         }
     }
 

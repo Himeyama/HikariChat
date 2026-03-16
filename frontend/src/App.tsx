@@ -39,11 +39,18 @@ interface ChatMessage {
   tool_calls?: any[];
 }
 
+interface ProjectInstruction {
+  directory: string;
+  fileName: string;
+  content: string;
+}
+
 interface ChatTab {
   name: string;
   conversationHistory: ChatMessage[];
   isLoading: boolean;
   workingDirectories?: string[];
+  projectInstructions?: ProjectInstruction[];
 }
 
 interface Settings {
@@ -643,21 +650,47 @@ function App() {
           const data = await response.json();
           if (data.exists) {
             const resolvedPath: string = data.path;
+
+            // プロジェクト説明ファイルを取得 (AGENTS.md > CLAUDE.md > README.md)
+            let instruction: ProjectInstruction | null = null;
+            try {
+              const instrRes = await fetch('http://localhost:29000/api/fs/project-instructions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: resolvedPath }),
+              });
+              const instrData = await instrRes.json();
+              if (instrData.found) {
+                instruction = {
+                  directory: resolvedPath,
+                  fileName: instrData.fileName,
+                  content: instrData.content,
+                };
+              }
+            } catch {
+              // 読み取り失敗しても作業ディレクトリ追加自体は続行
+            }
+
             setTabs(prevTabs => {
               const current = prevTabs[activeTabIdRef.current];
               const dirs = current.workingDirectories ?? [];
               if (dirs.includes(resolvedPath)) {
                 return prevTabs;
               }
+              const instructions = current.projectInstructions ?? [];
               return {
                 ...prevTabs,
                 [activeTabIdRef.current]: {
                   ...current,
                   workingDirectories: [...dirs, resolvedPath],
+                  projectInstructions: instruction
+                    ? [...instructions.filter(i => i.directory !== resolvedPath), instruction]
+                    : instructions,
                 },
               };
             });
-            addMessage(`[SYSTEM] ${resolvedPath} を作業ディレクトリとして設定しました。`, 'system');
+            const instrInfo = instruction ? ` (${instruction.fileName} を読み込みました)` : '';
+            addMessage(`[SYSTEM] ${resolvedPath} を作業ディレクトリとして設定しました。${instrInfo}`, 'system');
           } else {
             addMessage(`[SYSTEM] ${args} は存在しないディレクトリです。`, 'error');
           }
@@ -717,9 +750,24 @@ function App() {
 
     // 作業ディレクトリが設定されている場合、システムプロンプトとして先頭に追加
     if (activeTab.workingDirectories && activeTab.workingDirectories.length > 0) {
+      let systemContent = `作業ディレクトリ:\n${activeTab.workingDirectories.join('\n')}`;
+
+      systemContent += '\n\n# ファイル操作ルール\n'
+        + '- ファイルを参照する場合は、正規化されたフルパスを使用すること。\n'
+        + '- ファイルの中身を聞かれた場合は、必ず最新の内容をREADしてから回答すること。キャッシュや記憶に頼らないこと。\n'
+        + '- ファイルをWRITEまたはEDITする場合は、事前に必ずREADして現在の内容を確認すること。';
+
+      // プロジェクト説明ファイルがあれば追加
+      if (activeTab.projectInstructions && activeTab.projectInstructions.length > 0) {
+        const instructionBlocks = activeTab.projectInstructions.map(
+          i => `--- ${i.directory} (${i.fileName}) ---\n${i.content}`
+        );
+        systemContent += `\n\nプロジェクト説明:\n${instructionBlocks.join('\n\n')}`;
+      }
+
       localMessages.push({
         role: 'system',
-        content: `作業ディレクトリ:\n${activeTab.workingDirectories.join('\n')}`,
+        content: systemContent,
       });
     }
 
