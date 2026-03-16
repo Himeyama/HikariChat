@@ -23,13 +23,7 @@ public partial class App : Application
     {
         _mcpManager = new McpManager();
 
-        // 設定を読み込んで MCP サーバーを起動
-        ApiSettings settings = await ApiSettingsManager.LoadAsync();
-        LogInfo($"OnLaunched: Loading settings. McpEnabled={settings.McpEnabled}, McpServers.Count={settings.McpServers.Count}");
-        await _mcpManager.UpdateSettingsAsync(settings);
-        LogInfo($"OnLaunched: MCP Manager updated. Status={_mcpManager.GetStatus()}");
-
-        // MainWindow を先に作成・表示
+        // MainWindow を先に作成・表示（MCP 初期化を待たない）
         _mainWindow = new MainWindow();
         _mainWindow.Activate();
         LogInfo($"OnLaunched: MainWindow activated");
@@ -63,7 +57,14 @@ public partial class App : Application
                 $"エラーコード: {ex.ErrorCode}"
             );
             MainWindow?.Close();
+            return;
         }
+
+        // MCP サーバーをバックグラウンドで初期化（ウィンドウ表示をブロックしない）
+        ApiSettings settings = await ApiSettingsManager.LoadAsync();
+        LogInfo($"OnLaunched: Loading settings. McpEnabled={settings.McpEnabled}, McpServers.Count={settings.McpServers.Count}");
+        await _mcpManager.UpdateSettingsAsync(settings);
+        LogInfo($"OnLaunched: MCP Manager updated. Status={_mcpManager.GetStatus()}");
     }
 
     public MainWindow? MainWindow => _mainWindow;
